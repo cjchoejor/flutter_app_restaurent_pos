@@ -228,7 +228,7 @@ Contributions are welcome! Feel free to submit issues or pull requests to improv
 
 ## 📜 Author
 
-**Kinley Prnjor**
+**Kinley Penjor, Inherited by Ngawang Choejor Wangdi**
 
 
 

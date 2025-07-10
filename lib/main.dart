@@ -25,6 +25,7 @@ import 'package:pos_system_legphel/bloc/navigation_bloc/bloc/navigation_bloc.dar
 import 'package:pos_system_legphel/bloc/proceed_order_bloc/bloc/proceed_order_bloc.dart';
 import 'package:pos_system_legphel/bloc/sub_category_bloc/bloc/sub_category_bloc.dart';
 import 'package:pos_system_legphel/bloc/table_bloc/bloc/add_table_bloc.dart';
+import 'package:pos_system_legphel/bloc/room_bloc/bloc/add_room_bloc.dart';
 import 'package:pos_system_legphel/bloc/tables%20and%20names/bloc/customer_info_bloc.dart';
 import 'package:pos_system_legphel/data/menu_api_service.dart';
 import 'package:pos_system_legphel/data/repositories/menu_repository.dart';
@@ -148,6 +149,7 @@ class MyApp extends StatelessWidget {
             BlocProvider(create: (context) => HoldOrderBloc()),
             BlocProvider(create: (context) => ProceedOrderBloc()),
             BlocProvider(create: (context) => TableBloc()),
+            BlocProvider(create: (context) => RoomBloc()),
             BlocProvider(create: (context) => CustomerInfoBloc()),
             BlocProvider(create: (context) => CustomerInfoOrderBloc()),
             BlocProvider(create: (context) => MenuPrintBloc()),

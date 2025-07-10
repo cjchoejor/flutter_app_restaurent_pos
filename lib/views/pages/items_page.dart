@@ -12,12 +12,15 @@ import 'package:pos_system_legphel/views/pages/Add Items/item_destination_list.d
 import 'package:pos_system_legphel/views/pages/Add Items/database_management_page.dart';
 import 'package:pos_system_legphel/views/pages/Add Items/qr_code_page.dart';
 import 'package:pos_system_legphel/views/pages/Add Items/add_new_table.dart';
+import 'package:pos_system_legphel/views/pages/Add Items/add_new_room.dart';
 import 'package:pos_system_legphel/views/pages/Add Items/allergic_items_list.dart';
 import 'package:pos_system_legphel/views/widgets/drawer_menu_widget.dart';
 import 'package:pos_system_legphel/models/settings/app_settings.dart';
-import 'package:pos_system_legphel/views/pages/import_menu_page.dart'; // ADD THIS IMPORT
+import 'package:pos_system_legphel/views/pages/import_menu_page.dart';
 
 class ItemsPage extends StatelessWidget {
+  ItemsPage({super.key});
+
   final List<Widget> rightScreens = [
     const AllItemsList(), // index 0
     const ItemsCategoryList(), // index 1
@@ -29,14 +32,15 @@ class ItemsPage extends StatelessWidget {
     const DatabaseManagementPage(), // index 7
     const QrCodePage(), // index 8
     const AddNewTable(), // index 9
+    const AddNewRoom(), // index 10
     BlocProvider(
-      // index 10
+      // index 11
       create: (context) => AllergicItemsBloc(),
       child: const AllergicItemsList(),
     ),
-    const ImportMenuPage(), // index 11 - ADD THIS LINE
+    const ImportMenuPage(), // index 12
     const Center(
-      // index 12 - Dummy page
+      // index 13
       child: Text(
         'Test Feature\nComing Soon!',
         textAlign: TextAlign.center,
@@ -48,8 +52,6 @@ class ItemsPage extends StatelessWidget {
       ),
     ),
   ];
-
-  ItemsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -145,10 +147,18 @@ class ItemsPage extends StatelessWidget {
                                 const Divider(height: 1, color: Colors.black12),
                                 _buildMenuItem(
                                   context,
+                                  icon: Icons.hotel_rounded,
+                                  title: "Rooms",
+                                  iconColor: Colors.purple.shade700,
+                                  index: 10,
+                                ),
+                                const Divider(height: 1, color: Colors.black12),
+                                _buildMenuItem(
+                                  context,
                                   icon: Icons.warning_rounded,
                                   title: "Allergic Items",
                                   iconColor: Colors.red.shade700,
-                                  index: 10,
+                                  index: 11,
                                 ),
                                 const Divider(height: 1, color: Colors.black12),
                                 _buildMenuItem(
@@ -195,17 +205,15 @@ class ItemsPage extends StatelessWidget {
                                   icon: Icons.upload_file,
                                   title: "Import Menu CSV",
                                   iconColor: Colors.teal.shade700,
-                                  index: 11, // This should now work!
+                                  index: 12,
                                 ),
                                 const Divider(height: 1, color: Colors.black12),
                                 _buildMenuItem(
                                   context,
-                                  icon: Icons.star, // You can change this icon
-                                  title:
-                                      "Test Feature", // You can change this title
-                                  iconColor: Colors.pink
-                                      .shade700, // You can change this color
-                                  index: 12, // New index 12
+                                  icon: Icons.star,
+                                  title: "Test Feature",
+                                  iconColor: Colors.pink.shade700,
+                                  index: 13,
                                 ),
                                 const Divider(height: 1, color: Colors.black12),
                               ],
@@ -268,12 +276,15 @@ class ItemsPage extends StatelessWidget {
                           title = "Tables";
                           break;
                         case 10:
+                          title = "Rooms";
+                          break;
+                        case 11:
                           title = "Allergic Items";
                           break;
-                        case 11: // ADD THIS CASE
+                        case 12:
                           title = "Import Menu CSV";
                           break;
-                        case 12: // ADD THIS CASE
+                        case 13:
                           title = "Test Feature";
                           break;
                       }

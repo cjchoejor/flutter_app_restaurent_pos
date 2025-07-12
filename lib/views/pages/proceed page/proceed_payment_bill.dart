@@ -18,6 +18,8 @@ class ProceedPaymentBill extends StatelessWidget {
   final double totalAmount;
   final String payMode;
   final String orderNumber;
+  final String? roomNumber; // ADD THIS
+  final String? reservationRefNo; // ADD THIS
   final String branchName;
   final double discount;
 
@@ -29,6 +31,8 @@ class ProceedPaymentBill extends StatelessWidget {
     required this.user,
     required this.phoneNo,
     required this.tableNo,
+    this.roomNumber, // ADD THIS
+    this.reservationRefNo, // ADD THIS
     required this.items,
     required this.subTotal,
     required this.bst,
@@ -182,6 +186,19 @@ class ProceedPaymentBill extends StatelessWidget {
                                   Icons.table_bar,
                                   "Table No: $tableNo",
                                 ),
+                                // ADD THESE LINES
+                                if (roomNumber != null &&
+                                    roomNumber!.isNotEmpty)
+                                  _buildInfoRow(
+                                    Icons.hotel,
+                                    "Room No: $roomNumber",
+                                  ),
+                                if (reservationRefNo != null &&
+                                    reservationRefNo!.isNotEmpty)
+                                  _buildInfoRow(
+                                    Icons.confirmation_number,
+                                    "Reservation: $reservationRefNo",
+                                  ),
                                 const SizedBox(height: 6),
                                 Row(
                                   children: [

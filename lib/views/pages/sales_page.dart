@@ -14,6 +14,8 @@ import 'package:pos_system_legphel/bloc/proceed_order_bloc/bloc/proceed_order_bl
 import 'package:pos_system_legphel/bloc/sub_category_bloc/bloc/sub_category_bloc.dart';
 import 'package:pos_system_legphel/bloc/table_bloc/bloc/add_table_bloc.dart';
 import 'package:pos_system_legphel/bloc/room_bloc/bloc/add_room_bloc.dart';
+import 'package:pos_system_legphel/bloc/room_reservation_bloc/room_reservation_bloc.dart';
+import 'package:pos_system_legphel/services/room_reservation_service.dart';
 import 'package:pos_system_legphel/bloc/tables%20and%20names/bloc/customer_info_bloc.dart';
 import 'package:pos_system_legphel/models/Menu%20Model/hold_order_model.dart';
 import 'package:pos_system_legphel/models/Menu%20Model/menu_bill_model.dart';
@@ -86,6 +88,10 @@ class _SalesPageState extends State<SalesPage> {
   List<CategoryModel> _orderedCategories = [];
   bool _isDragging = false;
   bool _isInitialized = false;
+
+  // Add these variables to _SalesPageState class
+  String? selectedRoomReservationRefNo;
+  bool isRoomReservationValid = false;
 
   @override
   void initState() {
@@ -315,236 +321,291 @@ class _SalesPageState extends State<SalesPage> {
         selectedTableNumber = customerInfoState.customerInfo.tableNo;
       }
     }
-    return Material(
-      child: Padding(
-        padding: const EdgeInsets.all(0.00),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Expanded(
-              flex: 6,
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.only(right: 0),
-                    height: 60,
-                    color: const Color.fromARGB(255, 3, 27, 48),
-                    child: _mainTopMenu(action: Container()),
+    return MultiBlocListener(
+        listeners: [
+          // Add this new listener
+          BlocListener<RoomReservationBloc, RoomReservationState>(
+            listener: (context, state) {
+              if (state is RoomReservationLoaded) {
+                setState(() {
+                  selectedRoomReservationRefNo = state.reservationRefNo;
+                  isRoomReservationValid = true;
+                });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Room ${state.roomNo} reservation found: ${state.reservationRefNo}'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
                   ),
-                  Expanded(
-                    // ← This is crucial for scrolling!
-                    child: Container(
-                      color: Colors.grey[200],
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 10, right: 10),
-                        child: BlocBuilder<CategoryBloc, CategoryState>(
-                          builder: (context, state) {
-                            if (state is CategoryLoading) {
-                              return const Center(
-                                  child: CircularProgressIndicator());
-                            } else if (state is CategoryLoaded) {
-                              List<CategoryModel> categoriesToDisplay;
+                );
+              } else if (state is RoomReservationError) {
+                setState(() {
+                  selectedRoomNumber = 'N/A';
+                  reSelectRoomNumber = '';
+                  selectedRoomReservationRefNo = null;
+                  isRoomReservationValid = false;
+                });
 
-                              if (_isInitialized &&
-                                  _orderedCategories.isNotEmpty) {
-                                // Use the ordered categories if we have them
-                                categoriesToDisplay = _orderedCategories;
-                              } else {
-                                // Use the default order for first load
-                                categoriesToDisplay = List<CategoryModel>.from(
-                                    state.categories)
-                                  ..sort((a, b) =>
-                                      a.categoryName.compareTo(b.categoryName));
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: const Text('Room Reservation Error'),
+                      content: Text(state.message),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              }
+            },
+          ),
+        ],
+        child: Material(
+          child: Padding(
+            padding: const EdgeInsets.all(0.00),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.only(right: 0),
+                        height: 60,
+                        color: const Color.fromARGB(255, 3, 27, 48),
+                        child: _mainTopMenu(action: Container()),
+                      ),
+                      Expanded(
+                        // ← This is crucial for scrolling!
+                        child: Container(
+                          color: Colors.grey[200],
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 10, right: 10),
+                            child: BlocBuilder<CategoryBloc, CategoryState>(
+                              builder: (context, state) {
+                                if (state is CategoryLoading) {
+                                  return const Center(
+                                      child: CircularProgressIndicator());
+                                } else if (state is CategoryLoaded) {
+                                  List<CategoryModel> categoriesToDisplay;
 
-                                // Initialize ordered categories
-                                if (!_isInitialized) {
-                                  _orderedCategories =
-                                      List.from(categoriesToDisplay);
-                                  _isInitialized = true;
-                                }
-                              }
+                                  if (_isInitialized &&
+                                      _orderedCategories.isNotEmpty) {
+                                    // Use the ordered categories if we have them
+                                    categoriesToDisplay = _orderedCategories;
+                                  } else {
+                                    // Use the default order for first load
+                                    categoriesToDisplay =
+                                        List<CategoryModel>.from(
+                                            state.categories)
+                                          ..sort((a, b) => a.categoryName
+                                              .compareTo(b.categoryName));
 
-                              return ReorderableListView.builder(
-                                itemCount: categoriesToDisplay.length,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
-                                onReorderStart: (index) {
-                                  setState(() {
-                                    _isDragging = true;
-                                  });
-                                },
-                                onReorderEnd: (index) {
-                                  setState(() {
-                                    _isDragging = false;
-                                    _orderedCategories =
-                                        List.from(categoriesToDisplay);
-                                    _saveCategoryOrder();
-                                  });
-                                },
-                                onReorder: (oldIndex, newIndex) {
-                                  setState(() {
-                                    if (oldIndex < newIndex) {
-                                      newIndex -= 1;
+                                    // Initialize ordered categories
+                                    if (!_isInitialized) {
+                                      _orderedCategories =
+                                          List.from(categoriesToDisplay);
+                                      _isInitialized = true;
                                     }
-                                    final item =
-                                        categoriesToDisplay.removeAt(oldIndex);
-                                    categoriesToDisplay.insert(newIndex, item);
-                                  });
-                                },
-                                itemBuilder: (context, index) {
-                                  final category = categoriesToDisplay[index];
-                                  final isSelected = _expandedIndex == index;
+                                  }
 
-                                  return Padding(
-                                    key: ValueKey(category.categoryId),
-                                    padding: const EdgeInsets.only(bottom: 4),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? Colors.deepOrange.shade400
-                                              : Colors.transparent,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: ExpansionPanelList(
-                                        elevation: 1,
-                                        expandedHeaderPadding: EdgeInsets.zero,
-                                        animationDuration:
-                                            const Duration(milliseconds: 300),
-                                        expansionCallback: (_, isExpanded) {
-                                          setState(() {
-                                            _selectSubCategory = null;
-                                            _expandedIndex =
-                                                _expandedIndex == index
-                                                    ? -1
-                                                    : index;
-                                            _selectedCategory =
-                                                category.categoryName;
-                                            if (_expandedIndex == -1) {
-                                              _selectedSubcategoryIndex = -1;
-                                              _selectedCategory = null;
-                                              _selectSubCategory = null;
-                                            }
+                                  return ReorderableListView.builder(
+                                    itemCount: categoriesToDisplay.length,
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    onReorderStart: (index) {
+                                      setState(() {
+                                        _isDragging = true;
+                                      });
+                                    },
+                                    onReorderEnd: (index) {
+                                      setState(() {
+                                        _isDragging = false;
+                                        _orderedCategories =
+                                            List.from(categoriesToDisplay);
+                                        _saveCategoryOrder();
+                                      });
+                                    },
+                                    onReorder: (oldIndex, newIndex) {
+                                      setState(() {
+                                        if (oldIndex < newIndex) {
+                                          newIndex -= 1;
+                                        }
+                                        final item = categoriesToDisplay
+                                            .removeAt(oldIndex);
+                                        categoriesToDisplay.insert(
+                                            newIndex, item);
+                                      });
+                                    },
+                                    itemBuilder: (context, index) {
+                                      final category =
+                                          categoriesToDisplay[index];
+                                      final isSelected =
+                                          _expandedIndex == index;
 
-                                            if (category.categoryName ==
-                                                "All") {
-                                              _selectedCategory = null;
-                                              _selectSubCategory = null;
-                                            }
-                                          });
-                                        },
-                                        children: [
-                                          ExpansionPanel(
-                                            isExpanded: isSelected,
-                                            canTapOnHeader: true,
-                                            backgroundColor: Colors.white,
-                                            headerBuilder:
-                                                (context, isExpanded) {
-                                              return ListTile(
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 4,
-                                                ),
-                                                leading: Container(
-                                                  padding:
-                                                      const EdgeInsets.all(8),
-                                                  decoration: BoxDecoration(
-                                                    color: Theme.of(context)
-                                                        .primaryColor
-                                                        .withOpacity(0.1),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.food_bank_rounded,
-                                                    color: isSelected
-                                                        ? Colors
-                                                            .deepOrange.shade600
-                                                        : Colors.deepOrange
-                                                            .shade400,
-                                                  ),
-                                                ),
-                                                title: Text(
-                                                  category.categoryName,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 12,
-                                                    color: isSelected
-                                                        ? Colors
-                                                            .deepOrange.shade800
-                                                        : null,
-                                                  ),
-                                                ),
-                                                trailing: _isDragging
-                                                    ? const Icon(
-                                                        Icons.drag_handle)
-                                                    : null,
-                                              );
+                                      return Padding(
+                                        key: ValueKey(category.categoryId),
+                                        padding:
+                                            const EdgeInsets.only(bottom: 4),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? Colors.deepOrange.shade400
+                                                  : Colors.transparent,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: ExpansionPanelList(
+                                            elevation: 1,
+                                            expandedHeaderPadding:
+                                                EdgeInsets.zero,
+                                            animationDuration: const Duration(
+                                                milliseconds: 300),
+                                            expansionCallback: (_, isExpanded) {
+                                              setState(() {
+                                                _selectSubCategory = null;
+                                                _expandedIndex =
+                                                    _expandedIndex == index
+                                                        ? -1
+                                                        : index;
+                                                _selectedCategory =
+                                                    category.categoryName;
+                                                if (_expandedIndex == -1) {
+                                                  _selectedSubcategoryIndex =
+                                                      -1;
+                                                  _selectedCategory = null;
+                                                  _selectSubCategory = null;
+                                                }
+
+                                                if (category.categoryName ==
+                                                    "All") {
+                                                  _selectedCategory = null;
+                                                  _selectSubCategory = null;
+                                                }
+                                              });
                                             },
-                                            body: Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey[50],
-                                                borderRadius:
-                                                    const BorderRadius.only(
-                                                  bottomLeft:
-                                                      Radius.circular(6),
-                                                  bottomRight:
-                                                      Radius.circular(6),
-                                                ),
-                                              ),
-                                              child: BlocProvider(
-                                                create: (_) => SubcategoryBloc()
-                                                  ..add(LoadSubcategories(
-                                                      categoryId:
-                                                          category.categoryId)),
-                                                child: BlocBuilder<
-                                                    SubcategoryBloc,
-                                                    SubcategoryState>(
-                                                  builder: (context,
-                                                      subcategoryState) {
-                                                    if (subcategoryState
-                                                        is SubcategoryLoading) {
-                                                      return Center(
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .all(16),
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                            valueColor:
-                                                                AlwaysStoppedAnimation<
+                                            children: [
+                                              ExpansionPanel(
+                                                isExpanded: isSelected,
+                                                canTapOnHeader: true,
+                                                backgroundColor: Colors.white,
+                                                headerBuilder:
+                                                    (context, isExpanded) {
+                                                  return ListTile(
+                                                    contentPadding:
+                                                        const EdgeInsets
+                                                            .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                    leading: Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              8),
+                                                      decoration: BoxDecoration(
+                                                        color: Theme.of(context)
+                                                            .primaryColor
+                                                            .withOpacity(0.1),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
+                                                      child: Icon(
+                                                        Icons.food_bank_rounded,
+                                                        color: isSelected
+                                                            ? Colors.deepOrange
+                                                                .shade600
+                                                            : Colors.deepOrange
+                                                                .shade400,
+                                                      ),
+                                                    ),
+                                                    title: Text(
+                                                      category.categoryName,
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 12,
+                                                        color: isSelected
+                                                            ? Colors.deepOrange
+                                                                .shade800
+                                                            : null,
+                                                      ),
+                                                    ),
+                                                    trailing: _isDragging
+                                                        ? const Icon(
+                                                            Icons.drag_handle)
+                                                        : null,
+                                                  );
+                                                },
+                                                body: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[50],
+                                                    borderRadius:
+                                                        const BorderRadius.only(
+                                                      bottomLeft:
+                                                          Radius.circular(6),
+                                                      bottomRight:
+                                                          Radius.circular(6),
+                                                    ),
+                                                  ),
+                                                  child: BlocProvider(
+                                                    create: (_) => SubcategoryBloc()
+                                                      ..add(LoadSubcategories(
+                                                          categoryId: category
+                                                              .categoryId)),
+                                                    child: BlocBuilder<
+                                                        SubcategoryBloc,
+                                                        SubcategoryState>(
+                                                      builder: (context,
+                                                          subcategoryState) {
+                                                        if (subcategoryState
+                                                            is SubcategoryLoading) {
+                                                          return Center(
+                                                            child: Padding(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .all(16),
+                                                              child:
+                                                                  CircularProgressIndicator(
+                                                                valueColor: AlwaysStoppedAnimation<
                                                                         Color>(
                                                                     Colors
                                                                         .deepOrange
                                                                         .shade300),
-                                                          ),
-                                                        ),
-                                                      );
-                                                    }
-                                                    if (subcategoryState
-                                                        is SubcategoryError) {
-                                                      return Center(
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .all(16),
-                                                          child: Text(
-                                                            'Error: ${subcategoryState.errorMessage}',
-                                                            style:
-                                                                const TextStyle(
+                                                              ),
+                                                            ),
+                                                          );
+                                                        }
+                                                        if (subcategoryState
+                                                            is SubcategoryError) {
+                                                          return Center(
+                                                            child: Padding(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .all(16),
+                                                              child: Text(
+                                                                'Error: ${subcategoryState.errorMessage}',
+                                                                style: const TextStyle(
                                                                     color: Colors
                                                                         .red),
-                                                          ),
-                                                        ),
-                                                      );
-                                                    }
-                                                    if (subcategoryState
-                                                        is SubcategoryLoaded) {
-                                                      final sortedSubcategories =
-                                                          List<dynamic>.from(
+                                                              ),
+                                                            ),
+                                                          );
+                                                        }
+                                                        if (subcategoryState
+                                                            is SubcategoryLoaded) {
+                                                          final sortedSubcategories = List<
+                                                                  dynamic>.from(
                                                               subcategoryState
                                                                   .subcategories)
                                                             ..sort((a, b) => a
@@ -552,630 +613,679 @@ class _SalesPageState extends State<SalesPage> {
                                                                 .compareTo(b
                                                                     .subcategoryName));
 
-                                                      return Column(
-                                                        children: [
-                                                          for (int subIndex = 0;
-                                                              subIndex <
-                                                                  sortedSubcategories
-                                                                      .length;
-                                                              subIndex++)
-                                                            ListTile(
-                                                              contentPadding:
-                                                                  const EdgeInsets
-                                                                      .symmetric(
-                                                                      horizontal:
-                                                                          16),
-                                                              leading: Icon(
-                                                                Icons
-                                                                    .subdirectory_arrow_right,
-                                                                color: _selectedSubcategoryIndex ==
-                                                                            subIndex &&
-                                                                        _expandedIndex ==
-                                                                            index
-                                                                    ? Colors
-                                                                        .deepOrange
-                                                                        .shade500
-                                                                    : Colors
-                                                                        .deepOrange
-                                                                        .shade300,
-                                                                size: 20,
-                                                              ),
-                                                              title: Text(
-                                                                sortedSubcategories[
-                                                                        subIndex]
-                                                                    .subcategoryName,
-                                                                style:
-                                                                    TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                  fontSize: 14,
-                                                                  decoration: _selectedSubcategoryIndex ==
-                                                                              subIndex &&
-                                                                          _expandedIndex ==
-                                                                              index
-                                                                      ? TextDecoration
-                                                                          .none
-                                                                      : TextDecoration
-                                                                          .none,
-                                                                  decorationColor: Colors
-                                                                      .deepOrange
-                                                                      .shade400,
-                                                                  decorationThickness:
-                                                                      2,
-                                                                  color: _selectedSubcategoryIndex ==
-                                                                              subIndex &&
-                                                                          _expandedIndex ==
-                                                                              index
-                                                                      ? Colors
+                                                          return Column(
+                                                            children: [
+                                                              for (int subIndex =
+                                                                      0;
+                                                                  subIndex <
+                                                                      sortedSubcategories
+                                                                          .length;
+                                                                  subIndex++)
+                                                                ListTile(
+                                                                  contentPadding:
+                                                                      const EdgeInsets
+                                                                          .symmetric(
+                                                                          horizontal:
+                                                                              16),
+                                                                  leading: Icon(
+                                                                    Icons
+                                                                        .subdirectory_arrow_right,
+                                                                    color: _selectedSubcategoryIndex ==
+                                                                                subIndex &&
+                                                                            _expandedIndex ==
+                                                                                index
+                                                                        ? Colors
+                                                                            .deepOrange
+                                                                            .shade500
+                                                                        : Colors
+                                                                            .deepOrange
+                                                                            .shade300,
+                                                                    size: 20,
+                                                                  ),
+                                                                  title: Text(
+                                                                    sortedSubcategories[
+                                                                            subIndex]
+                                                                        .subcategoryName,
+                                                                    style:
+                                                                        TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w500,
+                                                                      fontSize:
+                                                                          14,
+                                                                      decoration: _selectedSubcategoryIndex == subIndex &&
+                                                                              _expandedIndex ==
+                                                                                  index
+                                                                          ? TextDecoration
+                                                                              .none
+                                                                          : TextDecoration
+                                                                              .none,
+                                                                      decorationColor: Colors
                                                                           .deepOrange
-                                                                          .shade700
-                                                                      : null,
+                                                                          .shade400,
+                                                                      decorationThickness:
+                                                                          2,
+                                                                      color: _selectedSubcategoryIndex == subIndex &&
+                                                                              _expandedIndex ==
+                                                                                  index
+                                                                          ? Colors
+                                                                              .deepOrange
+                                                                              .shade700
+                                                                          : null,
+                                                                    ),
+                                                                  ),
+                                                                  trailing:
+                                                                      Icon(
+                                                                    Icons
+                                                                        .chevron_right,
+                                                                    size: 20,
+                                                                    color: _selectedSubcategoryIndex ==
+                                                                                subIndex &&
+                                                                            _expandedIndex ==
+                                                                                index
+                                                                        ? Colors
+                                                                            .deepOrange
+                                                                            .shade400
+                                                                        : null,
+                                                                  ),
+                                                                  onTap: () {
+                                                                    setState(
+                                                                        () {
+                                                                      _selectedSubcategoryIndex =
+                                                                          subIndex;
+                                                                      _selectSubCategory =
+                                                                          sortedSubcategories[subIndex]
+                                                                              .subcategoryName;
+                                                                    });
+                                                                  },
                                                                 ),
-                                                              ),
-                                                              trailing: Icon(
-                                                                Icons
-                                                                    .chevron_right,
-                                                                size: 20,
-                                                                color: _selectedSubcategoryIndex ==
-                                                                            subIndex &&
-                                                                        _expandedIndex ==
-                                                                            index
-                                                                    ? Colors
-                                                                        .deepOrange
-                                                                        .shade400
-                                                                    : null,
-                                                              ),
-                                                              onTap: () {
-                                                                setState(() {
-                                                                  _selectedSubcategoryIndex =
-                                                                      subIndex;
-                                                                  _selectSubCategory =
-                                                                      sortedSubcategories[
-                                                                              subIndex]
-                                                                          .subcategoryName;
-                                                                });
-                                                              },
-                                                            ),
-                                                          const SizedBox(
-                                                              height: 8),
-                                                        ],
-                                                      );
-                                                    }
-                                                    return Container();
-                                                  },
+                                                              const SizedBox(
+                                                                  height: 8),
+                                                            ],
+                                                          );
+                                                        }
+                                                        return Container();
+                                                      },
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                } else {
+                                  return const Center(
+                                      child:
+                                          Text("No categories available 🎈"));
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+                Expanded(
+                  flex: 10,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.only(
+                            right: 10, left: 10, top: 5, bottom: 5),
+                        height: 60,
+                        color: const Color.fromARGB(255, 3, 27, 48),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: BlocBuilder<MenuApiBloc, MenuApiState>(
+                                builder: (context, state) {
+                                  if (state is MenuApiLoaded) {
+                                    return MenuSearchWidget(
+                                      menuItems: state.menuItems,
+                                      onSearchResults: (filteredItems) {
+                                        setState(() {
+                                          _filteredMenuItems = filteredItems;
+                                        });
+                                      },
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: BlocBuilder<MenuApiBloc, MenuApiState>(
+                          builder: (context, state) {
+                            if (state is MenuApiLoading) {
+                              return const Center(
+                                  child: CircularProgressIndicator());
+                            } else if (state is MenuApiLoaded) {
+                              final itemsToDisplay = _filteredMenuItems.isEmpty
+                                  ? state.menuItems
+                                  : _filteredMenuItems;
+
+                              final filteredMenuItems = itemsToDisplay
+                                  .where((menuItem) =>
+                                      _selectedCategory == null ||
+                                      menuItem.menuType == _selectedCategory)
+                                  .where((menuItem) =>
+                                      _selectSubCategory == null ||
+                                      menuItem.subMenuType ==
+                                          _selectSubCategory)
+                                  .toList();
+
+                              return GridView.builder(
+                                padding: const EdgeInsets.only(
+                                  top: 0,
+                                  left: 8,
+                                  right: 8,
+                                  bottom: 8,
+                                ),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  childAspectRatio: (1 / 1.4),
+                                ),
+                                itemCount: filteredMenuItems.length,
+                                itemBuilder: (context, index) {
+                                  final item = filteredMenuItems[index];
+                                  return _item(
+                                    product: item,
+                                    context: context,
+                                  );
+                                },
+                              );
+                            } else if (state is MenuApiError) {
+                              return Center(
+                                  child: Text("Error: ${state.message}"));
+                            } else {
+                              return const Center(
+                                  child: Text("Something went wrong!"));
+                            }
+                          },
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+                // Right side menu------------------------------------------->
+                Expanded(
+                  flex: 6,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.only(left: 10),
+                        height: 60,
+                        color: Colors.green[200],
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  "Bill",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Table Selection Dropdown
+                                SizedBox(
+                                  width: 65,
+                                  child: BlocBuilder<TableBloc, TableState>(
+                                    builder: (context, state) {
+                                      if (state is TableLoaded) {
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6),
+                                          decoration: BoxDecoration(
+                                            color: const Color.fromARGB(
+                                                    255, 3, 27, 48)
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: const Color.fromARGB(
+                                                      255, 3, 27, 48)
+                                                  .withOpacity(0.2),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: DropdownButton<String>(
+                                            value: selectedTableNumber,
+                                            underline: const SizedBox(),
+                                            isExpanded: true,
+                                            icon: Icon(
+                                              Icons.arrow_drop_down,
+                                              color:
+                                                  selectedTableNumber == 'N/A'
+                                                      ? const Color.fromARGB(
+                                                          255, 29, 29, 29)
+                                                      : const Color.fromARGB(
+                                                          255, 3, 27, 48),
+                                              size: 20,
+                                            ),
+                                            style: TextStyle(
+                                              color:
+                                                  selectedTableNumber == 'N/A'
+                                                      ? const Color.fromARGB(
+                                                          255, 26, 26, 26)
+                                                      : const Color.fromARGB(
+                                                          255, 3, 27, 48),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            dropdownColor: const Color.fromARGB(
+                                                255, 248, 248, 248),
+                                            items: [
+                                              DropdownMenuItem(
+                                                value: 'N/A',
+                                                child: Text(
+                                                  'Table',
+                                                  style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 11,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              if (state.tables.isEmpty)
+                                                DropdownMenuItem(
+                                                  value: 'No tables',
+                                                  enabled: false,
+                                                  child: Text(
+                                                    'No tables',
+                                                    style: TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 11,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                )
+                                              else
+                                                ...state.tables.map((table) {
+                                                  return DropdownMenuItem(
+                                                    value: table.tableNumber,
+                                                    child: Text(
+                                                      table.tableName != null &&
+                                                              table.tableName!
+                                                                  .isNotEmpty
+                                                          ? '${table.tableNumber} - ${table.tableName}'
+                                                          : 'Table ${table.tableNumber}',
+                                                      style: const TextStyle(
+                                                        color: Color.fromARGB(
+                                                            255, 3, 27, 48),
+                                                        fontSize: 13,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                            ],
+                                            onChanged: (String? newValue) {
+                                              if (newValue != 'No tables') {
+                                                setState(() {
+                                                  selectedTableNumber =
+                                                      newValue ?? 'N/A';
+                                                  reSelectTableNumber =
+                                                      newValue ?? '';
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Room Selection Dropdown
+                                SizedBox(
+                                  width: 60,
+                                  child: BlocBuilder<RoomBloc, RoomState>(
+                                    builder: (context, state) {
+                                      if (state is RoomLoaded) {
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color.fromARGB(
+                                                    255, 3, 27, 48)
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: const Color.fromARGB(
+                                                      255, 3, 27, 48)
+                                                  .withOpacity(0.2),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: DropdownButton<String>(
+                                            value: selectedRoomNumber,
+                                            underline: const SizedBox(),
+                                            isExpanded: true,
+                                            icon: Icon(
+                                              Icons.arrow_drop_down,
+                                              color: selectedRoomNumber == 'N/A'
+                                                  ? const Color.fromARGB(
+                                                      255, 29, 29, 29)
+                                                  : const Color.fromARGB(
+                                                      255, 3, 27, 48),
+                                              size: 20,
+                                            ),
+                                            style: TextStyle(
+                                              color: selectedRoomNumber == 'N/A'
+                                                  ? const Color.fromARGB(
+                                                      255, 26, 26, 26)
+                                                  : const Color.fromARGB(
+                                                      255, 3, 27, 48),
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            dropdownColor: const Color.fromARGB(
+                                                255, 248, 248, 248),
+                                            items: [
+                                              DropdownMenuItem(
+                                                value: 'N/A',
+                                                child: Text(
+                                                  'Room',
+                                                  style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 11,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              if (state.rooms.isEmpty)
+                                                DropdownMenuItem(
+                                                  value: 'No rooms',
+                                                  enabled: false,
+                                                  child: Text(
+                                                    'No rooms',
+                                                    style: TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 11,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                )
+                                              else
+                                                ...state.rooms.map((room) {
+                                                  return DropdownMenuItem(
+                                                    value: room.roomNumber,
+                                                    child: Text(
+                                                      room.roomType != null &&
+                                                              room.roomType!
+                                                                  .isNotEmpty
+                                                          ? '${room.roomNumber} - ${room.roomType}'
+                                                          : 'Room ${room.roomNumber}',
+                                                      style: const TextStyle(
+                                                        color: Color.fromARGB(
+                                                            255, 3, 27, 48),
+                                                        fontSize: 9,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                            ],
+                                            onChanged: (String? newValue) {
+                                              if (newValue != 'No rooms') {
+                                                setState(() {
+                                                  selectedRoomNumber =
+                                                      newValue ?? 'N/A';
+                                                  reSelectRoomNumber =
+                                                      newValue ?? '';
+
+                                                  // Clear previous reservation data
+                                                  selectedRoomReservationRefNo =
+                                                      null;
+                                                  isRoomReservationValid =
+                                                      false;
+                                                });
+
+                                                // Check room reservation if a room is selected and it's not 'N/A'
+                                                if (newValue != null &&
+                                                    newValue != 'N/A') {
+                                                  final roomNo =
+                                                      int.tryParse(newValue);
+                                                  if (roomNo != null) {
+                                                    context
+                                                        .read<
+                                                            RoomReservationBloc>()
+                                                        .add(
+                                                            CheckRoomReservation(
+                                                                roomNo));
+                                                  }
+                                                } else {
+                                                  // Clear reservation when no room selected
+                                                  context
+                                                      .read<
+                                                          RoomReservationBloc>()
+                                                      .add(
+                                                          const ClearRoomReservation());
+                                                }
+                                              }
+                                            },
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  onPressed: () =>
+                                      _showAddPersonDialog(context),
+                                  icon: const Icon(Icons.person_add),
+                                ),
+                                PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == 'toggle_print') {
+                                      setState(() {
+                                        _enablePrint = !_enablePrint;
+                                        _savePrintOptionState();
+                                      });
+                                    } else if (value == 'view_orders') {
+                                      Navigator.push(context, MaterialPageRoute(
+                                        builder: (context) {
+                                          return const HoldOrderPage(
+                                              menuItems: []);
+                                        },
+                                      ));
+                                    }
+                                  },
+                                  itemBuilder: (context) => [
+                                    PopupMenuItem(
+                                      value: 'toggle_print',
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 4),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.print_rounded,
+                                                  size: 20,
+                                                  color: _enablePrint
+                                                      ? const Color(0xFF4CAF50)
+                                                      : Colors.grey[600],
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Text(
+                                                  'Enable Print',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: _enablePrint
+                                                        ? const Color(
+                                                            0xFF4CAF50)
+                                                        : Colors.grey[800],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Switch(
+                                              value: _enablePrint,
+                                              onChanged: (bool value) {
+                                                setState(() {
+                                                  _enablePrint = value;
+                                                  _savePrintOptionState();
+                                                });
+                                                Navigator.pop(context);
+                                              },
+                                              activeColor:
+                                                  const Color(0xFF4CAF50),
+                                              activeTrackColor:
+                                                  const Color(0xFF4CAF50)
+                                                      .withOpacity(0.4),
+                                              inactiveThumbColor:
+                                                  Colors.grey[400],
+                                              inactiveTrackColor:
+                                                  Colors.grey[300],
+                                              materialTapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const PopupMenuDivider(),
+                                    PopupMenuItem(
+                                      value: 'view_orders',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.receipt_long_rounded,
+                                            size: 20,
+                                            color: Colors.grey[600],
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Text(
+                                            'View Orders',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                  );
+                                  ],
+                                  child: const IconButton(
+                                    onPressed: null,
+                                    icon: Icon(Icons.more_vert),
+                                  ),
+                                ),
+                              ],
+                            )
+                          ],
+                        ),
+                      ),
+                      // Food Items List-------------------------------------------------------------------------------------->
+                      Expanded(
+                        flex: 1,
+                        child: BlocBuilder<MenuBloc, MenuState>(
+                          builder: (context, menuState) {
+                            if (menuState is MenuLoaded) {
+                              final reversedCartItems =
+                                  menuState.cartItems.reversed.toList();
+
+                              return BlocBuilder<MenuPrintBloc, MenuPrintState>(
+                                builder: (context, menuPrintState) {
+                                  if (menuPrintState is MenuPrintLoaded) {
+                                    return Container(
+                                      padding: const EdgeInsets.only(
+                                          left: 10, top: 15),
+                                      color: Colors.grey[200],
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            child: ListView.builder(
+                                              itemCount:
+                                                  reversedCartItems.length,
+                                              itemBuilder: (context, index) {
+                                                final cartItem =
+                                                    reversedCartItems[index];
+
+                                                final matchedPrintItem =
+                                                    menuPrintState.printItems
+                                                        .firstWhere(
+                                                  (item) =>
+                                                      item.product.menuId ==
+                                                      cartItem.product.menuId,
+                                                  orElse: () => MenuPrintModel(
+                                                      product: cartItem
+                                                          .product), // ✅ Valid default
+                                                );
+
+                                                return CartItemWidget(
+                                                  cartItem: cartItem,
+                                                  cartItemPrint:
+                                                      matchedPrintItem,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          // Summary section with keyboard handling
+                                          SafeArea(
+                                            child: Container(
+                                              color: Colors.grey[200],
+                                              child: summarySection(
+                                                context,
+                                                menuState.totalAmount,
+                                                menuState.cartItems,
+                                                selectedTableNumber!,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  } else {
+                                    return const Center(
+                                        child: CircularProgressIndicator());
+                                  }
                                 },
                               );
                             } else {
                               return const Center(
-                                  child: Text("No categories available 🎈"));
+                                  child: CircularProgressIndicator());
                             }
                           },
                         ),
                       ),
-                    ),
-                  )
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 10,
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.only(
-                        right: 10, left: 10, top: 5, bottom: 5),
-                    height: 60,
-                    color: const Color.fromARGB(255, 3, 27, 48),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: BlocBuilder<MenuApiBloc, MenuApiState>(
-                            builder: (context, state) {
-                              if (state is MenuApiLoaded) {
-                                return MenuSearchWidget(
-                                  menuItems: state.menuItems,
-                                  onSearchResults: (filteredItems) {
-                                    setState(() {
-                                      _filteredMenuItems = filteredItems;
-                                    });
-                                  },
-                                );
-                              }
-                              return const SizedBox.shrink();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
-                  Expanded(
-                    child: BlocBuilder<MenuApiBloc, MenuApiState>(
-                      builder: (context, state) {
-                        if (state is MenuApiLoading) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        } else if (state is MenuApiLoaded) {
-                          final itemsToDisplay = _filteredMenuItems.isEmpty
-                              ? state.menuItems
-                              : _filteredMenuItems;
-
-                          final filteredMenuItems = itemsToDisplay
-                              .where((menuItem) =>
-                                  _selectedCategory == null ||
-                                  menuItem.menuType == _selectedCategory)
-                              .where((menuItem) =>
-                                  _selectSubCategory == null ||
-                                  menuItem.subMenuType == _selectSubCategory)
-                              .toList();
-
-                          return GridView.builder(
-                            padding: const EdgeInsets.only(
-                              top: 0,
-                              left: 8,
-                              right: 8,
-                              bottom: 8,
-                            ),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              childAspectRatio: (1 / 1.4),
-                            ),
-                            itemCount: filteredMenuItems.length,
-                            itemBuilder: (context, index) {
-                              final item = filteredMenuItems[index];
-                              return _item(
-                                product: item,
-                                context: context,
-                              );
-                            },
-                          );
-                        } else if (state is MenuApiError) {
-                          return Center(child: Text("Error: ${state.message}"));
-                        } else {
-                          return const Center(
-                              child: Text("Something went wrong!"));
-                        }
-                      },
-                    ),
-                  )
-                ],
-              ),
+                ),
+              ],
             ),
-            // Right side menu------------------------------------------->
-            Expanded(
-              flex: 6,
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.only(left: 10),
-                    height: 60,
-                    color: Colors.green[200],
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              "Bill",
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Table Selection Dropdown
-                            SizedBox(
-                              width: 65,
-                              child: BlocBuilder<TableBloc, TableState>(
-                                builder: (context, state) {
-                                  if (state is TableLoaded) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            const Color.fromARGB(255, 3, 27, 48)
-                                                .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: const Color.fromARGB(
-                                                  255, 3, 27, 48)
-                                              .withOpacity(0.2),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: DropdownButton<String>(
-                                        value: selectedTableNumber,
-                                        underline: const SizedBox(),
-                                        isExpanded: true,
-                                        icon: Icon(
-                                          Icons.arrow_drop_down,
-                                          color: selectedTableNumber == 'N/A'
-                                              ? const Color.fromARGB(
-                                                  255, 29, 29, 29)
-                                              : const Color.fromARGB(
-                                                  255, 3, 27, 48),
-                                          size: 20,
-                                        ),
-                                        style: TextStyle(
-                                          color: selectedTableNumber == 'N/A'
-                                              ? const Color.fromARGB(
-                                                  255, 26, 26, 26)
-                                              : const Color.fromARGB(
-                                                  255, 3, 27, 48),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        dropdownColor: const Color.fromARGB(
-                                            255, 248, 248, 248),
-                                        items: [
-                                          DropdownMenuItem(
-                                            value: 'N/A',
-                                            child: Text(
-                                              'Table',
-                                              style: TextStyle(
-                                                color: Colors.black,
-                                                fontSize: 11,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          if (state.tables.isEmpty)
-                                            DropdownMenuItem(
-                                              value: 'No tables',
-                                              enabled: false,
-                                              child: Text(
-                                                'No tables',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 11,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            )
-                                          else
-                                            ...state.tables.map((table) {
-                                              return DropdownMenuItem(
-                                                value: table.tableNumber,
-                                                child: Text(
-                                                  table.tableName != null &&
-                                                          table.tableName!
-                                                              .isNotEmpty
-                                                      ? '${table.tableNumber} - ${table.tableName}'
-                                                      : 'Table ${table.tableNumber}',
-                                                  style: const TextStyle(
-                                                    color: Color.fromARGB(
-                                                        255, 3, 27, 48),
-                                                    fontSize: 13,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              );
-                                            }).toList(),
-                                        ],
-                                        onChanged: (String? newValue) {
-                                          if (newValue != 'No tables') {
-                                            setState(() {
-                                              selectedTableNumber =
-                                                  newValue ?? 'N/A';
-                                              reSelectTableNumber =
-                                                  newValue ?? '';
-                                            });
-                                          }
-                                        },
-                                      ),
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Room Selection Dropdown
-                            SizedBox(
-                              width: 60,
-                              child: BlocBuilder<RoomBloc, RoomState>(
-                                builder: (context, state) {
-                                  if (state is RoomLoaded) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 4),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            const Color.fromARGB(255, 3, 27, 48)
-                                                .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: const Color.fromARGB(
-                                                  255, 3, 27, 48)
-                                              .withOpacity(0.2),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: DropdownButton<String>(
-                                        value: selectedRoomNumber,
-                                        underline: const SizedBox(),
-                                        isExpanded: true,
-                                        icon: Icon(
-                                          Icons.arrow_drop_down,
-                                          color: selectedRoomNumber == 'N/A'
-                                              ? const Color.fromARGB(
-                                                  255, 29, 29, 29)
-                                              : const Color.fromARGB(
-                                                  255, 3, 27, 48),
-                                          size: 20,
-                                        ),
-                                        style: TextStyle(
-                                          color: selectedRoomNumber == 'N/A'
-                                              ? const Color.fromARGB(
-                                                  255, 26, 26, 26)
-                                              : const Color.fromARGB(
-                                                  255, 3, 27, 48),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        dropdownColor: const Color.fromARGB(
-                                            255, 248, 248, 248),
-                                        items: [
-                                          DropdownMenuItem(
-                                            value: 'N/A',
-                                            child: Text(
-                                              'Room',
-                                              style: TextStyle(
-                                                color: Colors.black,
-                                                fontSize: 11,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          if (state.rooms.isEmpty)
-                                            DropdownMenuItem(
-                                              value: 'No rooms',
-                                              enabled: false,
-                                              child: Text(
-                                                'No rooms',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 11,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            )
-                                          else
-                                            ...state.rooms.map((room) {
-                                              return DropdownMenuItem(
-                                                value: room.roomNumber,
-                                                child: Text(
-                                                  room.roomType != null &&
-                                                          room.roomType!
-                                                              .isNotEmpty
-                                                      ? '${room.roomNumber} - ${room.roomType}'
-                                                      : 'Room ${room.roomNumber}',
-                                                  style: const TextStyle(
-                                                    color: Color.fromARGB(
-                                                        255, 3, 27, 48),
-                                                    fontSize: 9,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              );
-                                            }).toList(),
-                                        ],
-                                        onChanged: (String? newValue) {
-                                          if (newValue != 'No rooms') {
-                                            setState(() {
-                                              selectedRoomNumber =
-                                                  newValue ?? 'N/A';
-                                              reSelectRoomNumber =
-                                                  newValue ?? '';
-                                            });
-                                          }
-                                        },
-                                      ),
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => _showAddPersonDialog(context),
-                              icon: const Icon(Icons.person_add),
-                            ),
-                            PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'toggle_print') {
-                                  setState(() {
-                                    _enablePrint = !_enablePrint;
-                                    _savePrintOptionState();
-                                  });
-                                } else if (value == 'view_orders') {
-                                  Navigator.push(context, MaterialPageRoute(
-                                    builder: (context) {
-                                      return const HoldOrderPage(menuItems: []);
-                                    },
-                                  ));
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                PopupMenuItem(
-                                  value: 'toggle_print',
-                                  child: Container(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 4),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.print_rounded,
-                                              size: 20,
-                                              color: _enablePrint
-                                                  ? const Color(0xFF4CAF50)
-                                                  : Colors.grey[600],
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Text(
-                                              'Enable Print',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                                color: _enablePrint
-                                                    ? const Color(0xFF4CAF50)
-                                                    : Colors.grey[800],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        Switch(
-                                          value: _enablePrint,
-                                          onChanged: (bool value) {
-                                            setState(() {
-                                              _enablePrint = value;
-                                              _savePrintOptionState();
-                                            });
-                                            Navigator.pop(context);
-                                          },
-                                          activeColor: const Color(0xFF4CAF50),
-                                          activeTrackColor:
-                                              const Color(0xFF4CAF50)
-                                                  .withOpacity(0.4),
-                                          inactiveThumbColor: Colors.grey[400],
-                                          inactiveTrackColor: Colors.grey[300],
-                                          materialTapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const PopupMenuDivider(),
-                                PopupMenuItem(
-                                  value: 'view_orders',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.receipt_long_rounded,
-                                        size: 20,
-                                        color: Colors.grey[600],
-                                      ),
-                                      const SizedBox(width: 12),
-                                      const Text(
-                                        'View Orders',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              child: const IconButton(
-                                onPressed: null,
-                                icon: Icon(Icons.more_vert),
-                              ),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                  // Food Items List-------------------------------------------------------------------------------------->
-                  Expanded(
-                    flex: 1,
-                    child: BlocBuilder<MenuBloc, MenuState>(
-                      builder: (context, menuState) {
-                        if (menuState is MenuLoaded) {
-                          final reversedCartItems =
-                              menuState.cartItems.reversed.toList();
-
-                          return BlocBuilder<MenuPrintBloc, MenuPrintState>(
-                            builder: (context, menuPrintState) {
-                              if (menuPrintState is MenuPrintLoaded) {
-                                return Container(
-                                  padding:
-                                      const EdgeInsets.only(left: 10, top: 15),
-                                  color: Colors.grey[200],
-                                  child: Column(
-                                    children: [
-                                      Expanded(
-                                        child: ListView.builder(
-                                          itemCount: reversedCartItems.length,
-                                          itemBuilder: (context, index) {
-                                            final cartItem =
-                                                reversedCartItems[index];
-
-                                            final matchedPrintItem =
-                                                menuPrintState.printItems
-                                                    .firstWhere(
-                                              (item) =>
-                                                  item.product.menuId ==
-                                                  cartItem.product.menuId,
-                                              orElse: () => MenuPrintModel(
-                                                  product: cartItem
-                                                      .product), // ✅ Valid default
-                                            );
-
-                                            return CartItemWidget(
-                                              cartItem: cartItem,
-                                              cartItemPrint: matchedPrintItem,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      // Summary section with keyboard handling
-                                      SafeArea(
-                                        child: Container(
-                                          color: Colors.grey[200],
-                                          child: summarySection(
-                                            context,
-                                            menuState.totalAmount,
-                                            menuState.cartItems,
-                                            selectedTableNumber!,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              } else {
-                                return const Center(
-                                    child: CircularProgressIndicator());
-                              }
-                            },
-                          );
-                        } else {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+          ),
+        ));
   }
 
   void _showAddPersonDialog(BuildContext context) {
@@ -1855,7 +1965,7 @@ class _SalesPageState extends State<SalesPage> {
                             () async {
                               setState(() {
                                 reSelectTableNumber = '';
-                                selectedTableNumber = 'Table';
+                                selectedTableNumber = 'N/A';
                               });
 
                               const uuid = Uuid();
@@ -1978,7 +2088,7 @@ class _SalesPageState extends State<SalesPage> {
                             const HoldOrderPage(menuItems: []), // Empty cart
                             () {
                               setState(() {
-                                selectedTableNumber = 'Table';
+                                selectedTableNumber = 'N/A';
                                 reSelectTableNumber = '';
                               });
                             },
@@ -2031,6 +2141,11 @@ class _SalesPageState extends State<SalesPage> {
                                 totalCost: double.parse(
                                     payableAmount.toStringAsFixed(2)),
                                 orderNumber: generatedOrderNumber,
+                                roomNumber: selectedRoomNumber != 'N/A'
+                                    ? selectedRoomNumber
+                                    : null, // ADD THIS
+                                reservationRefNo:
+                                    selectedRoomReservationRefNo, // ADD THIS
                               ),
 
                               () async {
@@ -2064,7 +2179,7 @@ class _SalesPageState extends State<SalesPage> {
 
                                 setState(() {
                                   reSelectTableNumber = '';
-                                  selectedTableNumber = 'Table';
+                                  selectedTableNumber = 'N/A';
                                 });
 
                                 context

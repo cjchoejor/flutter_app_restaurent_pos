@@ -18,6 +18,8 @@ class BillService {
     required String user,
     required String phoneNo,
     required String tableNo,
+    String? roomNumber, // ADD THIS
+    String? reservationRefNo, // ADD THIS
     required List<Map<String, dynamic>> items,
     required double subTotal,
     required double bst,
@@ -97,6 +99,13 @@ class BillService {
             pw.Text("Table No: $tableNo",
                 style: const pw.TextStyle(fontSize: 7)),
             pw.SizedBox(height: 5),
+
+            if (roomNumber != null && roomNumber.isNotEmpty)
+              pw.Text("Room No: $roomNumber",
+                  style: const pw.TextStyle(fontSize: 7)),
+            if (reservationRefNo != null && reservationRefNo.isNotEmpty)
+              pw.Text("Reservation: $reservationRefNo",
+                  style: const pw.TextStyle(fontSize: 7)),
 
             // Items Header
             pw.Text("Items Purchased",
@@ -250,6 +259,8 @@ class BillService {
     required String user,
     required String phoneNo,
     required String tableNo,
+    String? roomNumber, // ADD THIS
+    String? reservationRefNo, // ADD THIS
     required List<Map<String, dynamic>> items,
     required double subTotal,
     required double bst,
@@ -318,6 +329,13 @@ class BillService {
       buffer.writeln('Time: $time');
       // buffer.writeln('User: $user');
       // buffer.writeln('Table No: $tableNo');
+
+      if (roomNumber != null && roomNumber.isNotEmpty) {
+        buffer.writeln('Room No: $roomNumber');
+      }
+      if (reservationRefNo != null && reservationRefNo.isNotEmpty) {
+        buffer.writeln('Reservation: $reservationRefNo');
+      }
 
       buffer.writeln('-' * lineLength);
 

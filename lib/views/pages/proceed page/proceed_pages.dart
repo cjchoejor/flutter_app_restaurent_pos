@@ -23,6 +23,8 @@ class ProceedPages extends StatefulWidget {
   final double subTotal;
   final double totalCost;
   final String orderNumber;
+  final String? roomNumber;
+  final String? reservationRefNo;
   final double bst;
   final double serviceTax;
 
@@ -34,6 +36,8 @@ class ProceedPages extends StatefulWidget {
     required this.serviceTax,
     required this.branchName,
     required this.orderNumber,
+    this.roomNumber,
+    this.reservationRefNo,
     required this.customername,
     required this.orderID,
     required this.phoneNumber,
@@ -1027,6 +1031,8 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
                 user: widget.customername,
                 phoneNo: widget.phoneNumber,
                 tableNo: widget.tableNumber,
+                roomNumber: widget.roomNumber, // ADD THIS
+                reservationRefNo: widget.reservationRefNo, // ADD THIS
                 items: widget.items
                     .map((item) => {
                           "menuName": item.product.menuName,

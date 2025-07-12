@@ -29,7 +29,7 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
     <application
-        android:label="DrukPOS"
+        android:label="DrukPOS DEBUG" 
         android:requestLegacyExternalStorage="true"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"

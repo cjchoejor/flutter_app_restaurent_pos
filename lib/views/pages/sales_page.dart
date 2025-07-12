@@ -771,208 +771,223 @@ class _SalesPageState extends State<SalesPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 8),
                             // Table Selection Dropdown
-                            BlocBuilder<TableBloc, TableState>(
-                              builder: (context, state) {
-                                if (state is TableLoaded) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          const Color.fromARGB(255, 3, 27, 48)
-                                              .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
+                            SizedBox(
+                              width: 65,
+                              child: BlocBuilder<TableBloc, TableState>(
+                                builder: (context, state) {
+                                  if (state is TableLoaded) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6),
+                                      decoration: BoxDecoration(
                                         color:
                                             const Color.fromARGB(255, 3, 27, 48)
-                                                .withOpacity(0.2),
-                                        width: 1,
+                                                .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: const Color.fromARGB(
+                                                  255, 3, 27, 48)
+                                              .withOpacity(0.2),
+                                          width: 1,
+                                        ),
                                       ),
-                                    ),
-                                    child: DropdownButton<String>(
-                                      value: selectedTableNumber,
-                                      underline: const SizedBox(),
-                                      icon: Icon(
-                                        Icons.arrow_drop_down,
-                                        color: selectedTableNumber == 'N/A'
-                                            ? const Color.fromARGB(
-                                                255, 29, 29, 29)
-                                            : const Color.fromARGB(
-                                                255, 3, 27, 48),
-                                        size: 20,
-                                      ),
-                                      style: TextStyle(
-                                        color: selectedTableNumber == 'N/A'
-                                            ? const Color.fromARGB(
-                                                255, 26, 26, 26)
-                                            : const Color.fromARGB(
-                                                255, 3, 27, 48),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      dropdownColor: const Color.fromARGB(
-                                          255, 248, 248, 248),
-                                      items: [
-                                        DropdownMenuItem(
-                                          value: 'N/A',
-                                          child: Text(
-                                            'Table', // Changed from 'Select Table' to 'Table'
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 13,
+                                      child: DropdownButton<String>(
+                                        value: selectedTableNumber,
+                                        underline: const SizedBox(),
+                                        isExpanded: true,
+                                        icon: Icon(
+                                          Icons.arrow_drop_down,
+                                          color: selectedTableNumber == 'N/A'
+                                              ? const Color.fromARGB(
+                                                  255, 29, 29, 29)
+                                              : const Color.fromARGB(
+                                                  255, 3, 27, 48),
+                                          size: 20,
+                                        ),
+                                        style: TextStyle(
+                                          color: selectedTableNumber == 'N/A'
+                                              ? const Color.fromARGB(
+                                                  255, 26, 26, 26)
+                                              : const Color.fromARGB(
+                                                  255, 3, 27, 48),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        dropdownColor: const Color.fromARGB(
+                                            255, 248, 248, 248),
+                                        items: [
+                                          DropdownMenuItem(
+                                            value: 'N/A',
+                                            child: Text(
+                                              'Table',
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 11,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                        ),
-                                        if (state.tables.isEmpty)
-                                          DropdownMenuItem(
-                                            value: 'No tables',
-                                            enabled: false,
-                                            child: Text(
-                                              'No tables',
-                                              style: TextStyle(
-                                                color: Colors.grey,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          )
-                                        else
-                                          ...state.tables.map((table) {
-                                            return DropdownMenuItem(
-                                              value: table.tableNumber,
+                                          if (state.tables.isEmpty)
+                                            DropdownMenuItem(
+                                              value: 'No tables',
+                                              enabled: false,
                                               child: Text(
-                                                table.tableName != null &&
-                                                        table.tableName!
-                                                            .isNotEmpty
-                                                    ? '${table.tableNumber} - ${table.tableName}'
-                                                    : 'Table ${table.tableNumber}',
-                                                style: const TextStyle(
-                                                  color: Color.fromARGB(
-                                                      255, 3, 27, 48),
-                                                  fontSize: 13,
+                                                'No tables',
+                                                style: TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 11,
                                                 ),
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                            );
-                                          }).toList(),
-                                      ],
-                                      onChanged: (String? newValue) {
-                                        if (newValue != 'No tables') {
-                                          setState(() {
-                                            selectedTableNumber =
-                                                newValue ?? 'N/A';
-                                            reSelectTableNumber =
-                                                newValue ?? '';
-                                          });
-                                        }
-                                      },
-                                    ),
-                                  );
-                                }
-                                return const SizedBox.shrink();
-                              },
+                                            )
+                                          else
+                                            ...state.tables.map((table) {
+                                              return DropdownMenuItem(
+                                                value: table.tableNumber,
+                                                child: Text(
+                                                  table.tableName != null &&
+                                                          table.tableName!
+                                                              .isNotEmpty
+                                                      ? '${table.tableNumber} - ${table.tableName}'
+                                                      : 'Table ${table.tableNumber}',
+                                                  style: const TextStyle(
+                                                    color: Color.fromARGB(
+                                                        255, 3, 27, 48),
+                                                    fontSize: 13,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              );
+                                            }).toList(),
+                                        ],
+                                        onChanged: (String? newValue) {
+                                          if (newValue != 'No tables') {
+                                            setState(() {
+                                              selectedTableNumber =
+                                                  newValue ?? 'N/A';
+                                              reSelectTableNumber =
+                                                  newValue ?? '';
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
                             ),
-                            const SizedBox(width: 8), // Space between dropdowns
+                            const SizedBox(width: 8),
                             // Room Selection Dropdown
-                            BlocBuilder<RoomBloc, RoomState>(
-                              builder: (context, state) {
-                                if (state is RoomLoaded) {
-                                  return Container(
-                                    width:
-                                        120, // ADD THIS LINE to limit the width
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          const Color.fromARGB(255, 3, 27, 48)
-                                              .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
+                            SizedBox(
+                              width: 60,
+                              child: BlocBuilder<RoomBloc, RoomState>(
+                                builder: (context, state) {
+                                  if (state is RoomLoaded) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4),
+                                      decoration: BoxDecoration(
                                         color:
                                             const Color.fromARGB(255, 3, 27, 48)
-                                                .withOpacity(0.2),
-                                        width: 1,
+                                                .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: const Color.fromARGB(
+                                                  255, 3, 27, 48)
+                                              .withOpacity(0.2),
+                                          width: 1,
+                                        ),
                                       ),
-                                    ),
-                                    child: DropdownButton<String>(
-                                      value: selectedRoomNumber,
-                                      underline: const SizedBox(),
-                                      icon: Icon(
-                                        Icons.arrow_drop_down,
-                                        color: selectedRoomNumber == 'N/A'
-                                            ? const Color.fromARGB(
-                                                255, 29, 29, 29)
-                                            : const Color.fromARGB(
-                                                255, 3, 27, 48),
-                                        size: 20,
-                                      ),
-                                      style: TextStyle(
-                                        color: selectedRoomNumber == 'N/A'
-                                            ? const Color.fromARGB(
-                                                255, 26, 26, 26)
-                                            : const Color.fromARGB(
-                                                255, 3, 27, 48),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      dropdownColor: const Color.fromARGB(
-                                          255, 248, 248, 248),
-                                      items: [
-                                        DropdownMenuItem(
-                                          value: 'N/A',
-                                          child: Text(
-                                            'Room',
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 13,
+                                      child: DropdownButton<String>(
+                                        value: selectedRoomNumber,
+                                        underline: const SizedBox(),
+                                        isExpanded: true,
+                                        icon: Icon(
+                                          Icons.arrow_drop_down,
+                                          color: selectedRoomNumber == 'N/A'
+                                              ? const Color.fromARGB(
+                                                  255, 29, 29, 29)
+                                              : const Color.fromARGB(
+                                                  255, 3, 27, 48),
+                                          size: 20,
+                                        ),
+                                        style: TextStyle(
+                                          color: selectedRoomNumber == 'N/A'
+                                              ? const Color.fromARGB(
+                                                  255, 26, 26, 26)
+                                              : const Color.fromARGB(
+                                                  255, 3, 27, 48),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        dropdownColor: const Color.fromARGB(
+                                            255, 248, 248, 248),
+                                        items: [
+                                          DropdownMenuItem(
+                                            value: 'N/A',
+                                            child: Text(
+                                              'Room',
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 11,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                        ),
-                                        if (state.rooms.isEmpty)
-                                          DropdownMenuItem(
-                                            value: 'No rooms',
-                                            enabled: false,
-                                            child: Text(
-                                              'No rooms',
-                                              style: TextStyle(
-                                                color: Colors.grey,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          )
-                                        else
-                                          ...state.rooms.map((room) {
-                                            return DropdownMenuItem(
-                                              value: room.roomNumber,
+                                          if (state.rooms.isEmpty)
+                                            DropdownMenuItem(
+                                              value: 'No rooms',
+                                              enabled: false,
                                               child: Text(
-                                                room.roomType != null &&
-                                                        room.roomType!
-                                                            .isNotEmpty
-                                                    ? '${room.roomNumber} - ${room.roomType}'
-                                                    : 'Room ${room.roomNumber}',
-                                                style: const TextStyle(
-                                                  color: Color.fromARGB(
-                                                      255, 3, 27, 48),
-                                                  fontSize: 13,
+                                                'No rooms',
+                                                style: TextStyle(
+                                                  color: Colors.grey,
+                                                  fontSize: 11,
                                                 ),
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                            );
-                                          }).toList(),
-                                      ],
-                                      onChanged: (String? newValue) {
-                                        if (newValue != 'No rooms') {
-                                          setState(() {
-                                            selectedRoomNumber =
-                                                newValue ?? 'N/A';
-                                            reSelectRoomNumber = newValue ?? '';
-                                          });
-                                        }
-                                      },
-                                    ),
-                                  );
-                                }
-                                return const SizedBox.shrink();
-                              },
+                                            )
+                                          else
+                                            ...state.rooms.map((room) {
+                                              return DropdownMenuItem(
+                                                value: room.roomNumber,
+                                                child: Text(
+                                                  room.roomType != null &&
+                                                          room.roomType!
+                                                              .isNotEmpty
+                                                      ? '${room.roomNumber} - ${room.roomType}'
+                                                      : 'Room ${room.roomNumber}',
+                                                  style: const TextStyle(
+                                                    color: Color.fromARGB(
+                                                        255, 3, 27, 48),
+                                                    fontSize: 9,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              );
+                                            }).toList(),
+                                        ],
+                                        onChanged: (String? newValue) {
+                                          if (newValue != 'No rooms') {
+                                            setState(() {
+                                              selectedRoomNumber =
+                                                  newValue ?? 'N/A';
+                                              reSelectRoomNumber =
+                                                  newValue ?? '';
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
                             ),
                           ],
                         ),

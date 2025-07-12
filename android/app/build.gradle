@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.pos_system_legphel"
+        applicationId = "com.example.pos_system_legphel.debug" // Add .debug suffix for debug app
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

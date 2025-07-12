@@ -11,6 +11,7 @@ import 'package:pos_system_legphel/bloc/sub_category_bloc/bloc/sub_category_bloc
 import 'package:pos_system_legphel/bloc/destination/bloc/destination_bloc.dart';
 import 'package:pos_system_legphel/models/others/new_menu_model.dart';
 import 'package:uuid/uuid.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class AddNewItemPage extends StatefulWidget {
   final MenuModel? product;
@@ -70,6 +71,36 @@ class _AddNewItemPageState extends State<AddNewItemPage> {
     }
   }
 
+  Future<String> _getAppSpecificFolderPath() async {
+    try {
+      PackageInfo packageInfo = await PackageInfo.fromPlatform();
+
+      // Check if it's debug build by looking at package name
+      bool isDebugBuild = packageInfo.packageName.contains('.debug');
+
+      String folderSuffix = isDebugBuild ? '_DEBUG' : '';
+      String customFolderPath;
+
+      if (Platform.isAndroid) {
+        // Create app-specific folder name
+        customFolderPath =
+            '/storage/emulated/0/DCIM/Legphel_menu_img$folderSuffix';
+      } else if (Platform.isIOS) {
+        final directory = await getApplicationDocumentsDirectory();
+        customFolderPath = '${directory.path}/Legphel_menu_img$folderSuffix';
+      } else {
+        final directory = await getApplicationDocumentsDirectory();
+        customFolderPath = '${directory.path}/Legphel_menu_img$folderSuffix';
+      }
+
+      return customFolderPath;
+    } catch (e) {
+      print('Error getting package info: $e');
+      // Fallback to original path if package info fails
+      return '/storage/emulated/0/DCIM/Legphel_menu_img';
+    }
+  }
+
   Future<void> _pickImage() async {
     // Request multiple permissions for Android
     Map<Permission, PermissionStatus> permissions = await [
@@ -92,20 +123,8 @@ class _AddNewItemPageState extends State<AddNewItemPage> {
         );
 
         if (pickedFile != null) {
-          String customFolderPath;
-
-          if (Platform.isAndroid) {
-            // Direct path to Android's internal storage DCIM
-            customFolderPath = '/storage/emulated/0/DCIM/Legphel_menu_img';
-          } else if (Platform.isIOS) {
-            // For iOS, use documents directory
-            final directory = await getApplicationDocumentsDirectory();
-            customFolderPath = '${directory.path}/Legphel_menu_img';
-          } else {
-            // Fallback for other platforms
-            final directory = await getApplicationDocumentsDirectory();
-            customFolderPath = '${directory.path}/Legphel_menu_img';
-          }
+          // Use the new app-specific folder path method
+          String customFolderPath = await _getAppSpecificFolderPath();
 
           final customDirectory = Directory(customFolderPath);
 
@@ -139,8 +158,10 @@ class _AddNewItemPageState extends State<AddNewItemPage> {
               setState(() {
                 _imagePath = savedImage.path;
               });
-              _showSnackBar("Image saved to DCIM/Legphel_menu_img/",
-                  isError: false);
+
+              // Get folder name for user feedback
+              String folderName = customFolderPath.split('/').last;
+              _showSnackBar("Image saved to DCIM/$folderName/", isError: false);
             }
           } else {
             throw Exception('File was not saved properly');
@@ -156,7 +177,14 @@ class _AddNewItemPageState extends State<AddNewItemPage> {
               await ImagePicker().pickImage(source: ImageSource.gallery);
           if (pickedFile != null) {
             final directory = await getApplicationDocumentsDirectory();
-            final customFolderPath = '${directory.path}/Legphel_menu_img';
+
+            // Get app-specific folder name for fallback too
+            PackageInfo packageInfo = await PackageInfo.fromPlatform();
+            bool isDebugBuild = packageInfo.packageName.contains('.debug');
+            String folderSuffix = isDebugBuild ? '_DEBUG' : '';
+
+            final customFolderPath =
+                '${directory.path}/Legphel_menu_img$folderSuffix';
             final customDirectory = Directory(customFolderPath);
 
             if (!await customDirectory.exists()) {

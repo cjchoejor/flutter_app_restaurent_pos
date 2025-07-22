@@ -17,6 +17,8 @@ class HoldOrderTicket {
   final String contact;
   final String orderNumber;
   final List<MenuPrintModel> items;
+  final String? roomNumber; // ADD THIS
+  final String? reservationRefNo; // ADD THIS
 
   HoldOrderTicket({
     required this.id,
@@ -27,6 +29,8 @@ class HoldOrderTicket {
     required this.contact,
     required this.tableNumber,
     required this.items,
+    this.roomNumber, // ADD THIS
+    this.reservationRefNo, // ADD THIS
   });
 
   /// Generates a PDF ticket with Kitchen Order Ticket (KOT) and Bill Order Ticket (BOT) sections.
@@ -272,6 +276,14 @@ class HoldOrderTicket {
     // buffer.write('User   : $user\n');
     // buffer.write('Contact: $contact\n');
     // buffer.write('Table  : $tableNumber\n\n');
+
+    // ADD ROOM DATA TO PRINTED OUTPUT
+    if (roomNumber != null && roomNumber!.isNotEmpty) {
+      buffer.write('Room : $roomNumber\n');
+    }
+    if (reservationRefNo != null && reservationRefNo!.isNotEmpty) {
+      buffer.write('Reservation: $reservationRefNo\n');
+    }
 
     buffer.write('-' * maxWidth + '\n');
     buffer.write(boldOn);

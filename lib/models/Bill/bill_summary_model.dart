@@ -21,6 +21,8 @@ class BillSummaryModel extends Equatable {
   final String? imageFnbBill;
   final DateTime date;
   final DateTime time;
+  final String? roomNo; // ADD THIS
+  final String? reservationRefNo; // ADD THIS
 
   const BillSummaryModel({
     required this.fnbBillNo,
@@ -43,6 +45,8 @@ class BillSummaryModel extends Equatable {
     this.imageFnbBill,
     required this.date,
     required this.time,
+    this.roomNo, // ADD THIS
+    this.reservationRefNo, // ADD THIS
   });
 
   Map<String, dynamic> toJson() {
@@ -67,6 +71,8 @@ class BillSummaryModel extends Equatable {
       'image_fnb_bill': imageFnbBill,
       'date': date.toIso8601String().split('T')[0],
       'time': time.toIso8601String().split('T')[1].substring(0, 8),
+      'room_no': roomNo, // ADD THIS
+      'reservation_ref_no': reservationRefNo, // ADD THIS
     };
   }
 
@@ -92,6 +98,8 @@ class BillSummaryModel extends Equatable {
       imageFnbBill: json['image_fnb_bill'],
       date: DateTime.parse(json['date']),
       time: DateTime.parse('2000-01-01T${json['time']}'),
+      roomNo: json['room_no'], // ADD THIS
+      reservationRefNo: json['reservation_ref_no'], // ADD THIS
     );
   }
 
@@ -117,5 +125,7 @@ class BillSummaryModel extends Equatable {
         imageFnbBill,
         date,
         time,
+        roomNo, // ADD THIS
+        reservationRefNo, // ADD THIS
       ];
 }

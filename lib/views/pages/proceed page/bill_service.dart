@@ -31,6 +31,7 @@ class BillService {
     required String payMode,
     required String orderNumber,
     required String branchName,
+    required double discount, // ADD THIS
   }) async {
     final pdf = pw.Document();
 
@@ -131,7 +132,16 @@ class BillService {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text("Subtotal:", style: const pw.TextStyle(fontSize: 8)),
+                pw.Text("Discount: ", style: const pw.TextStyle(fontSize: 8)),
+                pw.Text("Nu. 0.00", style: const pw.TextStyle(fontSize: 8)),
+              ],
+            ),
+
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(discount > 0 ? "Subtotal after Discount:" : "Subtotal:",
+                    style: const pw.TextStyle(fontSize: 8)),
                 pw.Text("Nu.${subTotal.toStringAsFixed(2)}",
                     style: const pw.TextStyle(fontSize: 8)),
               ],
@@ -151,13 +161,6 @@ class BillService {
                 pw.Text("B.S.T 10%:", style: const pw.TextStyle(fontSize: 8)),
                 pw.Text("Nu.${(serviceTax).toStringAsFixed(2)}",
                     style: const pw.TextStyle(fontSize: 8)),
-              ],
-            ),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text("Discount: ", style: const pw.TextStyle(fontSize: 8)),
-                pw.Text("Nu. 0.00", style: const pw.TextStyle(fontSize: 8)),
               ],
             ),
 
@@ -229,22 +232,31 @@ class BillService {
           await billDirectory.create(recursive: true);
         }
 
-        // Create and save the file
+        // CREATE AND SAVE THE FILE - ADD THIS MISSING PART
         final file = File('${billDirectory.path}/bill_$id.pdf');
         await file.writeAsBytes(pdfData);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('PDF saved to ${file.path}')),
-        );
+        // ADD CONTEXT CHECK
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('PDF saved to ${file.path}')),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Storage permission denied')),
-        );
+        // ADD CONTEXT CHECK
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Storage permission denied')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save PDF: $e')),
-      );
+      // ADD CONTEXT CHECK
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save PDF: $e')),
+        );
+      }
     }
   }
 
@@ -366,11 +378,12 @@ class BillService {
 
       buffer.writeln('-' * lineLength);
 
-      addSummaryLine('Subtotal:', 'Nu.${subTotal.toStringAsFixed(2)}');
+      addSummaryLine('Discount:', 'Nu.${discount.toStringAsFixed(2)}');
+      addSummaryLine(discount > 0 ? 'Subtotal after Discount:' : 'Subtotal:',
+          'Nu.${subTotal.toStringAsFixed(2)}');
       addSummaryLine('Service ${bst}%:', 'Nu.${(bstAmt).toStringAsFixed(2)}');
       addSummaryLine(
           'B.S.T ${serviceTax}%:', 'Nu.${(serviceAmt).toStringAsFixed(2)}');
-      addSummaryLine('Discount:', 'Nu.${discount.toStringAsFixed(2)}');
 
       buffer.writeln('-' * lineLength);
       addSummaryLine('Total Amount:', 'Nu.${totalAmount.toStringAsFixed(2)}',
@@ -393,16 +406,22 @@ class BillService {
       await socket.flush();
       socket.destroy();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Print job sent to thermal printer')),
-      );
+      // ADD CONTEXT CHECK
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Print job sent to thermal printer')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to print: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // ADD CONTEXT CHECK
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to print: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

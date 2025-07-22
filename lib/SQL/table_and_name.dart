@@ -19,7 +19,12 @@ class CustomerInfoDatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 3, // INCREMENT VERSION FOR MIGRATION
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade, // ADD UPGRADE HANDLER
+    );
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -29,12 +34,33 @@ class CustomerInfoDatabaseHelper {
         tableNumber TEXT,
         customerName TEXT,
         customerContact TEXT,
+        orderNumber TEXT,
         orderDateTime TEXT,
-        orderedItems TEXT
+        orderedItems TEXT,
+        roomNumber TEXT,
+        reservationRefNo TEXT
       )
     ''');
   }
 
+  // ADD UPGRADE HANDLER FOR EXISTING DATABASES
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add missing columns to existing table
+      await db
+          .execute('ALTER TABLE customer_orders ADD COLUMN orderNumber TEXT');
+      await db
+          .execute('ALTER TABLE customer_orders ADD COLUMN roomNumber TEXT');
+      await db.execute(
+          'ALTER TABLE customer_orders ADD COLUMN reservationRefNo TEXT');
+    }
+    // Add more version checks here if needed in the future
+    if (oldVersion < 3) {
+      // Handle any future schema changes
+    }
+  }
+
+  // Rest of the methods remain the same...
   Future<int> insertCustomerOrder(CustomerInfoModel order) async {
     final db = await instance.database;
     return await db.insert('customer_orders', order.toMap());

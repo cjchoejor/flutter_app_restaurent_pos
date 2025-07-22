@@ -22,6 +22,8 @@ class CustomerInfoOrderBloc
       orderId: event.orderId,
       tableNo: event.tableNo,
       orderNumber: event.orderNumber,
+      roomNumber: event.roomNumber, // ADD THIS
+      reservationRefNo: event.reservationRefNo, // ADD THIS
     );
 
     emit(CustomerInfoOrderLoaded(customerInfo));

@@ -15,7 +15,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ProceedPages extends StatefulWidget {
   final List<MenuBillModel> items;
-  final String customername;
+  final String customerName;
   final String phoneNumber;
   final String tableNumber;
   final String orderID;
@@ -38,7 +38,7 @@ class ProceedPages extends StatefulWidget {
     required this.orderNumber,
     this.roomNumber,
     this.reservationRefNo,
-    required this.customername,
+    required this.customerName,
     required this.orderID,
     required this.phoneNumber,
     required this.tableNumber,
@@ -451,7 +451,12 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
                                 fillColor: Colors.white,
                               ),
                               value: selectedServiceType,
-                              items: ['Dine In', 'Takeaway', 'Delivery']
+                              items: [
+                                'Dine In',
+                                'Takeaway',
+                                'Delivery',
+                                'Room Service'
+                              ]
                                   .map((type) => DropdownMenuItem(
                                         value: type,
                                         child: Text(
@@ -962,8 +967,12 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
           // Create bill summary
           final billSummary = BillSummaryModel(
             fnbBillNo: widget.orderNumber,
-            primaryCustomerName: widget.customername,
-            phoneNo: widget.phoneNumber,
+            primaryCustomerName: widget.customerName.isNotEmpty
+                ? widget.customerName
+                : "Walk-in Customer", // Use the customer name from sales page
+            phoneNo: widget.phoneNumber.isNotEmpty
+                ? widget.phoneNumber
+                : "N/A", // Use the phone from sales page
             tableNo: widget.tableNumber,
             pax: 1,
             outlet: widget.branchName,
@@ -982,6 +991,8 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
             paymentMode: method,
             date: DateTime.now(),
             time: DateTime.now(),
+            roomNo: widget.roomNumber, // ADD THIS
+            reservationRefNo: widget.reservationRefNo, // ADD THIS
           );
 
           // Create bill details
@@ -1004,12 +1015,14 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
             orderNumber: widget.orderNumber,
             holdOrderId: widget.orderID,
             tableNumber: widget.tableNumber,
-            customerName: widget.customername,
+            customerName: widget.customerName,
             phoneNumber: widget.phoneNumber,
             restaurantBranchName: widget.branchName,
             orderDateTime: DateTime.now(),
             menuItems: widget.items,
             totalAmount: finalAmount,
+            roomNumber: widget.roomNumber, // ADD THIS
+            reservationRefNo: widget.reservationRefNo, // ADD THIS
           );
 
           // Submit bill using bloc
@@ -1028,7 +1041,7 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
               builder: (context) => ProceedPaymentBill(
                 orderNumber: widget.orderNumber,
                 id: widget.orderID,
-                user: widget.customername,
+                user: widget.customerName,
                 phoneNo: widget.phoneNumber,
                 tableNo: widget.tableNumber,
                 roomNumber: widget.roomNumber, // ADD THIS

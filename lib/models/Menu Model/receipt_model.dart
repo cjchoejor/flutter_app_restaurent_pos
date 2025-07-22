@@ -13,6 +13,8 @@ class MenuReceipt {
   final double totalAmount;
   final PaymentMode paymentMode;
   final OrderType orderType;
+  final String? roomNo; // ADD THIS
+  final String? reservationRefNo; // ADD THIS
 
   MenuReceipt({
     required this.id,
@@ -26,6 +28,8 @@ class MenuReceipt {
     required this.totalAmount,
     required this.paymentMode,
     required this.orderType,
+    this.roomNo, // ADD THIS
+    this.reservationRefNo, // ADD THIS
   });
 }
 

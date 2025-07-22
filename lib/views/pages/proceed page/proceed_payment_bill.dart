@@ -63,6 +63,7 @@ class ProceedPaymentBill extends StatelessWidget {
       payMode: payMode,
       orderNumber: orderNumber,
       branchName: branchName,
+      discount: discount, // ADD THIS LINE
     );
   }
 
@@ -468,6 +469,9 @@ class ProceedPaymentBill extends StatelessWidget {
                                   user: user,
                                   phoneNo: phoneNo,
                                   tableNo: tableNo,
+                                  roomNumber: roomNumber, // ADD THIS
+                                  reservationRefNo:
+                                      reservationRefNo, // ADD THIS
                                   items: items,
                                   subTotal: subTotal,
                                   bst: subTotal / bst,

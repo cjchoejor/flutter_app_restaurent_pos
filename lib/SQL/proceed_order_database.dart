@@ -15,7 +15,8 @@ class ProceedOrderDatabaseHelper {
     // to retriever the old data from the data you can use this
     // but might need to change the model as it has lesser data
     // _database = await _initDB('ProceedOrdersFromAPINew.db');
-    _database = await _initDB('ProceedOrderDataBase01.db');
+    _database =
+        await _initDB('ProceedOrderDataBase01.db'); // KEEP ORIGINAL NAME
     return _database!;
   }
 
@@ -23,7 +24,12 @@ class ProceedOrderDatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 2, // INCREMENT VERSION
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade, // ADD UPGRADE HANDLER
+    );
   }
 
   // SQLite Table for Proceed Orders
@@ -38,9 +44,20 @@ class ProceedOrderDatabaseHelper {
         restaurantBranchName TEXT,
         orderDateTime TEXT,
         menuItems TEXT,
-        totalAmount REAL
+        totalAmount REAL,
+        roomNumber TEXT,
+        reservationRefNo TEXT
       )
     ''');
+  }
+
+  // ADD UPGRADE HANDLER
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE proceed_orders ADD COLUMN roomNumber TEXT');
+      await db.execute(
+          'ALTER TABLE proceed_orders ADD COLUMN reservationRefNo TEXT');
+    }
   }
 
   // Insert a Proceed Order

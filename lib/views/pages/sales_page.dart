@@ -222,6 +222,7 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   // Used to see the change in dependencies automatically updating the UserInformation widget
+  // Update the didChangeDependencies method (lines 223-260):
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -243,13 +244,25 @@ class _SalesPageState extends State<SalesPage> {
             reSelectTableNumber = state.customerInfo.tableNo;
             selectedTableNumber = state.customerInfo.tableNo;
           }
+
+          // ADD ROOM DATA RESTORATION
+          if (state.customerInfo.roomNumber != null &&
+              state.customerInfo.roomNumber!.isNotEmpty) {
+            selectedRoomNumber = state.customerInfo.roomNumber!;
+            reSelectRoomNumber = state.customerInfo.roomNumber!;
+          }
+          if (state.customerInfo.reservationRefNo != null &&
+              state.customerInfo.reservationRefNo!.isNotEmpty) {
+            selectedRoomReservationRefNo = state.customerInfo.reservationRefNo;
+            isRoomReservationValid = true;
+          }
+
           // Update the controllers
           nameController.text = existingName;
           contactController.text = existingContact;
 
           // Handle order number
           if (state.customerInfo.orderNumber.isNotEmpty) {
-            // _orderCounter = int.parse(state.customerInfo.orderNumber);
             List<String> parts = state.customerInfo.orderNumber.split('-');
             _orderCounter = int.parse(parts.last);
             savedOrderNumber = state.customerInfo.orderNumber;
@@ -1963,11 +1976,6 @@ class _SalesPageState extends State<SalesPage> {
                             const Color(0xFFFFDAB9),
                             HoldOrderPage(menuItems: state.cartItems),
                             () async {
-                              setState(() {
-                                reSelectTableNumber = '';
-                                selectedTableNumber = 'N/A';
-                              });
-
                               const uuid = Uuid();
                               final holdOrderId = uuid.v4();
 
@@ -2010,11 +2018,34 @@ class _SalesPageState extends State<SalesPage> {
                                 holdOrderId: holdOrderId,
                                 tableNumber: tableNumber,
                                 orderNumber: formatedOrderNumber,
-                                customerName: nameController.text,
-                                customerContact: contactController.text,
+                                customerName: nameController.text.isNotEmpty
+                                    ? nameController.text
+                                    : existingName.isNotEmpty
+                                        ? existingName
+                                        : "Walk-in Customer", // PASS ACTUAL CUSTOMER NAME
+                                customerContact:
+                                    contactController.text.isNotEmpty
+                                        ? contactController.text
+                                        : existingContact.isNotEmpty
+                                            ? existingContact
+                                            : "N/A", // PASS ACTUAL CONTACT
                                 orderDateTime: DateTime.now(),
                                 menuItems: state.cartItems,
+                                roomNumber: selectedRoomNumber != 'N/A'
+                                    ? selectedRoomNumber
+                                    : null, // ADD THIS
+                                reservationRefNo:
+                                    selectedRoomReservationRefNo, // ADD THIS
                               );
+
+                              setState(() {
+                                reSelectTableNumber = '';
+                                selectedTableNumber = 'N/A';
+                                reSelectRoomNumber = ''; // ADD THIS
+                                selectedRoomNumber = 'N/A'; // ADD THIS
+                                selectedRoomReservationRefNo = null; // ADD THIS
+                                isRoomReservationValid = false; // ADD THIS
+                              });
 
                               // increment only when there is not customerInfoOrderLoaded
                               if (customerInfoState
@@ -2027,11 +2058,22 @@ class _SalesPageState extends State<SalesPage> {
                                 orderId: holdOrderId,
                                 orderNumber: formatedOrderNumber,
                                 tableNumber: tableNumber,
-                                customerName: (state.cartItems.isNotEmpty &&
-                                        state.cartItems[0].customerName != null)
-                                    ? state.cartItems[0].customerName!
-                                    : nameController.text,
-                                customerContact: contactController.text,
+                                customerName: nameController.text.isNotEmpty
+                                    ? nameController.text
+                                    : existingName.isNotEmpty
+                                        ? existingName
+                                        : (state.cartItems.isNotEmpty &&
+                                                state.cartItems[0]
+                                                        .customerName !=
+                                                    null)
+                                            ? state.cartItems[0].customerName!
+                                            : "Walk-in Customer", // PASS ACTUAL CUSTOMER NAME
+                                customerContact:
+                                    contactController.text.isNotEmpty
+                                        ? contactController.text
+                                        : existingContact.isNotEmpty
+                                            ? existingContact
+                                            : "N/A", // PASS ACTUAL CONTACT
                                 orderDateTime: DateTime.now(),
                                 orderedItems: state.cartItems,
                               );
@@ -2059,6 +2101,11 @@ class _SalesPageState extends State<SalesPage> {
                                 items: (menuPrintState as MenuPrintLoaded)
                                     .printItems,
                                 contact: holdItems.customerContact,
+                                roomNumber: selectedRoomNumber != 'N/A'
+                                    ? selectedRoomNumber
+                                    : null, // ADD THIS
+                                reservationRefNo:
+                                    selectedRoomReservationRefNo, // ADD THIS
                               );
 
                               existingContact = '';
@@ -2066,13 +2113,25 @@ class _SalesPageState extends State<SalesPage> {
                               nameController.text = '';
                               contactController.text = '';
 
+                              setState(() {
+                                reSelectTableNumber = '';
+                                selectedTableNumber = 'N/A';
+                                reSelectRoomNumber = ''; // ADD THIS
+                                selectedRoomNumber = 'N/A'; // ADD THIS
+                                selectedRoomReservationRefNo = null; // ADD THIS
+                                isRoomReservationValid = false; // ADD THIS
+                              });
+
                               context
                                   .read<CustomerInfoOrderBloc>()
                                   .add(RemoveCustomerInfoOrder());
-
                               context
                                   .read<MenuPrintBloc>()
                                   .add(const RemoveAllFromPrint());
+
+                              // CLEAR ROOM RESERVATION STATE
+                              context.read<RoomReservationBloc>().add(
+                                  const ClearRoomReservation()); // ADD THIS
 
                               if (_enablePrint) {
                                 await ticket.printToThermalPrinter(context);
@@ -2130,14 +2189,21 @@ class _SalesPageState extends State<SalesPage> {
                               ProceedPages(
                                 items: isEnabled ? state.cartItems : [],
                                 branchName: branchName,
-                                customername: nameController.text,
+                                customerName: nameController.text.isNotEmpty
+                                    ? nameController.text
+                                    : existingName.isNotEmpty
+                                        ? existingName
+                                        : "Walk-in Customer", // PASS ACTUAL CUSTOMER NAME
                                 bst: bst,
                                 serviceTax: serviceCharge,
                                 tableNumber: tableNumber,
-                                phoneNumber: "+975-${contactController.text}",
+                                phoneNumber: contactController.text.isNotEmpty
+                                    ? "+975-${contactController.text}"
+                                    : existingContact.isNotEmpty
+                                        ? existingContact
+                                        : "N/A", // PASS ACTUAL PHONE NUMBER
                                 orderID: const Uuid().v4(),
                                 subTotal: totalAmount,
-                                //must include the tax you know what and what ever is who
                                 totalCost: double.parse(
                                     payableAmount.toStringAsFixed(2)),
                                 orderNumber: generatedOrderNumber,
@@ -2180,6 +2246,11 @@ class _SalesPageState extends State<SalesPage> {
                                 setState(() {
                                   reSelectTableNumber = '';
                                   selectedTableNumber = 'N/A';
+                                  reSelectRoomNumber = ''; // ADD THIS
+                                  selectedRoomNumber = 'N/A'; // ADD THIS
+                                  selectedRoomReservationRefNo =
+                                      null; // ADD THIS
+                                  isRoomReservationValid = false; // ADD THIS
                                 });
 
                                 context
@@ -2188,6 +2259,9 @@ class _SalesPageState extends State<SalesPage> {
                                 context
                                     .read<MenuPrintBloc>()
                                     .add(const RemoveAllFromPrint());
+                                // CLEAR ROOM RESERVATION STATE
+                                context.read<RoomReservationBloc>().add(
+                                    const ClearRoomReservation()); // ADD THIS
                               },
                             ),
                           ),

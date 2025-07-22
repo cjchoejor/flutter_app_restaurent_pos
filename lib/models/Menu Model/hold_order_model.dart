@@ -11,6 +11,8 @@ class HoldOrderModel extends Equatable {
   final String customerContact;
   final DateTime orderDateTime;
   final List<MenuBillModel> menuItems;
+  final String? roomNumber; // ADD THIS
+  final String? reservationRefNo; // ADD THIS
 
   const HoldOrderModel({
     required this.holdOrderId,
@@ -20,6 +22,8 @@ class HoldOrderModel extends Equatable {
     required this.customerName,
     required this.orderDateTime,
     required this.menuItems,
+    this.roomNumber, // ADD THIS
+    this.reservationRefNo, // ADD THIS
   });
 
   double get totalPrice {
@@ -34,6 +38,8 @@ class HoldOrderModel extends Equatable {
     DateTime? orderDateTime,
     String? customerContact,
     List<MenuBillModel>? menuItems,
+    String? roomNumber, // ADD THIS
+    String? reservationRefNo, // ADD THIS
   }) {
     return HoldOrderModel(
       holdOrderId: holdOrderId ?? this.holdOrderId,
@@ -43,6 +49,8 @@ class HoldOrderModel extends Equatable {
       customerContact: customerContact ?? this.customerContact,
       orderDateTime: orderDateTime ?? this.orderDateTime,
       menuItems: menuItems ?? this.menuItems,
+      roomNumber: roomNumber ?? this.roomNumber, // ADD THIS
+      reservationRefNo: reservationRefNo ?? this.reservationRefNo, // ADD THIS
     );
   }
 
@@ -58,6 +66,8 @@ class HoldOrderModel extends Equatable {
       'menuItems': jsonEncode(menuItems
           .map((item) => item.toMap())
           .toList()), // Convert to JSON string
+      'roomNumber': roomNumber, // ADD THIS
+      'reservationRefNo': reservationRefNo, // ADD THIS
     };
   }
 
@@ -73,6 +83,8 @@ class HoldOrderModel extends Equatable {
       menuItems: List<MenuBillModel>.from(
         jsonDecode(map['menuItems']).map((item) => MenuBillModel.fromMap(item)),
       ),
+      roomNumber: map['roomNumber'], // ADD THIS
+      reservationRefNo: map['reservationRefNo'], // ADD THIS
     );
   }
 
@@ -85,5 +97,7 @@ class HoldOrderModel extends Equatable {
         customerName,
         orderDateTime,
         menuItems,
+        roomNumber, // ADD THIS
+        reservationRefNo, // ADD THIS
       ];
 }

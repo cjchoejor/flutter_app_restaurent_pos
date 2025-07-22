@@ -12,6 +12,8 @@ class ProceedOrderModel extends Equatable {
   final String orderNumber;
   final List<MenuBillModel> menuItems;
   final double totalAmount;
+  final String? roomNumber; // ADD THIS
+  final String? reservationRefNo; // ADD THIS
 
   const ProceedOrderModel({
     required this.orderNumber,
@@ -23,6 +25,8 @@ class ProceedOrderModel extends Equatable {
     required this.orderDateTime,
     required this.menuItems,
     required this.totalAmount,
+    this.roomNumber, // ADD THIS
+    this.reservationRefNo, // ADD THIS
   });
 
   /// Computes total from menuItems if needed elsewhere
@@ -44,6 +48,8 @@ class ProceedOrderModel extends Equatable {
     DateTime? orderDateTime,
     List<MenuBillModel>? menuItems,
     double? totalAmount,
+    String? roomNumber, // ADD THIS
+    String? reservationRefNo, // ADD THIS
   }) {
     return ProceedOrderModel(
       holdOrderId: holdOrderId ?? this.holdOrderId,
@@ -55,6 +61,8 @@ class ProceedOrderModel extends Equatable {
       orderDateTime: orderDateTime ?? this.orderDateTime,
       menuItems: menuItems ?? this.menuItems,
       totalAmount: totalAmount ?? this.totalAmount,
+      roomNumber: roomNumber ?? this.roomNumber, // ADD THIS
+      reservationRefNo: reservationRefNo ?? this.reservationRefNo, // ADD
     );
   }
 
@@ -69,6 +77,8 @@ class ProceedOrderModel extends Equatable {
       'orderDateTime': orderDateTime.toIso8601String(),
       'menuItems': jsonEncode(menuItems.map((item) => item.toMap()).toList()),
       'totalAmount': totalAmount,
+      'roomNumber': roomNumber, // ADD THIS
+      'reservationRefNo': reservationRefNo, // ADD THIS
     };
   }
 
@@ -95,6 +105,8 @@ class ProceedOrderModel extends Equatable {
       totalAmount: map['totalAmount'] != null
           ? double.parse(map['totalAmount'].toString())
           : calculatedTotal,
+      roomNumber: map['roomNumber'], // ADD THIS
+      reservationRefNo: map['reservationRefNo'], // ADD THIS
     );
   }
 
@@ -109,5 +121,7 @@ class ProceedOrderModel extends Equatable {
         orderDateTime,
         menuItems,
         totalAmount,
+        roomNumber, // ADD THIS
+        reservationRefNo, // ADD THIS
       ];
 }

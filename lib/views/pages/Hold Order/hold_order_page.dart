@@ -82,8 +82,10 @@ class _HoldOrderPageState extends State<HoldOrderPage> {
                             horizontal: 12,
                             vertical: 8,
                           ),
-                          title: Row(
+                          title: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // Always show Order Number
                               Text(
                                 'Order Number: ${holdOrderItem.orderNumber}',
                                 style: const TextStyle(
@@ -91,16 +93,90 @@ class _HoldOrderPageState extends State<HoldOrderPage> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(
-                                width: 20,
+                              const SizedBox(height: 6),
+
+                              // Show additional info in a row
+                              Row(
+                                children: [
+                                  // Show Table Number if not N/A
+                                  if (holdOrderItem.tableNumber != 'N/A' &&
+                                      holdOrderItem.tableNumber.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: Colors.blue.shade300),
+                                      ),
+                                      child: Text(
+                                        'Table: ${holdOrderItem.tableNumber}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      ),
+                                    ),
+
+                                  // Add spacing if both table and room are shown
+                                  if (holdOrderItem.tableNumber != 'N/A' &&
+                                      holdOrderItem.tableNumber.isNotEmpty &&
+                                      holdOrderItem.roomNumber != null &&
+                                      holdOrderItem.roomNumber != 'N/A' &&
+                                      holdOrderItem.roomNumber!.isNotEmpty)
+                                    const SizedBox(width: 8),
+
+                                  // Show Room Number if not null/N/A
+                                  if (holdOrderItem.roomNumber != null &&
+                                      holdOrderItem.roomNumber != 'N/A' &&
+                                      holdOrderItem.roomNumber!.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: Colors.green.shade300),
+                                      ),
+                                      child: Text(
+                                        'Room: ${holdOrderItem.roomNumber}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.green.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
-                              // Text(
-                              // 'Customer Name: ${holdOrderItem.customerName}',
-                              // style: const TextStyle(
-                              // fontSize: 12,
-                              // fontWeight: FontWeight.bold,
-                              // ),
-                              // ),
+
+                              // Show Reservation Reference if available
+                              if (holdOrderItem.reservationRefNo != null &&
+                                  holdOrderItem.reservationRefNo!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade100,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                          color: Colors.orange.shade300),
+                                    ),
+                                    child: Text(
+                                      'Ref: ${holdOrderItem.reservationRefNo}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                           trailing: Row(
@@ -115,6 +191,9 @@ class _HoldOrderPageState extends State<HoldOrderPage> {
                               const SizedBox(width: 10),
                               OutlinedButton(
                                 onPressed: () {
+                                  print(
+                                      "DEBUG: Edit button - passing roomNumber: '${holdOrderItem.roomNumber}', reservationRefNo: '${holdOrderItem.reservationRefNo}'");
+
                                   context.read<CustomerInfoOrderBloc>().add(
                                         AddCustomerInfoOrder(
                                           name: holdOrderItem.customerName,
@@ -124,6 +203,9 @@ class _HoldOrderPageState extends State<HoldOrderPage> {
                                           tableNo: holdOrderItem.tableNumber,
                                           orderNumber:
                                               holdOrderItem.orderNumber,
+                                          roomNumber: holdOrderItem.roomNumber,
+                                          reservationRefNo:
+                                              holdOrderItem.reservationRefNo,
                                         ),
                                       );
                                   context
@@ -155,6 +237,9 @@ class _HoldOrderPageState extends State<HoldOrderPage> {
                               const SizedBox(width: 4),
                               OutlinedButton(
                                 onPressed: () {
+                                  print(
+                                      "DEBUG: Proceed button - passing roomNumber: '${holdOrderItem.roomNumber}', reservationRefNo: '${holdOrderItem.reservationRefNo}'");
+
                                   context.read<CustomerInfoOrderBloc>().add(
                                         AddCustomerInfoOrder(
                                           name: holdOrderItem.customerName,
@@ -164,6 +249,9 @@ class _HoldOrderPageState extends State<HoldOrderPage> {
                                           tableNo: holdOrderItem.tableNumber,
                                           orderNumber:
                                               holdOrderItem.orderNumber,
+                                          roomNumber: holdOrderItem.roomNumber,
+                                          reservationRefNo:
+                                              holdOrderItem.reservationRefNo,
                                         ),
                                       );
                                   context

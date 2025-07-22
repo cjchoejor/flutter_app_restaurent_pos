@@ -13,6 +13,8 @@ class AddCustomerInfoOrder extends CustomerInfoOrderEvent {
   final String orderId;
   final String tableNo;
   final String orderNumber;
+  final String? roomNumber; // ADD THIS
+  final String? reservationRefNo; // ADD THIS
 
   const AddCustomerInfoOrder({
     required this.name,
@@ -20,10 +22,20 @@ class AddCustomerInfoOrder extends CustomerInfoOrderEvent {
     required this.orderId,
     required this.tableNo,
     required this.orderNumber,
+    this.roomNumber, // ADD THIS
+    this.reservationRefNo, // ADD THIS
   });
 
   @override
-  List<Object?> get props => [name, contact, orderId, tableNo, orderNumber];
+  List<Object?> get props => [
+        name,
+        contact,
+        orderId,
+        tableNo,
+        orderNumber,
+        roomNumber,
+        reservationRefNo
+      ];
 }
 
 class RemoveCustomerInfoOrder extends CustomerInfoOrderEvent {}

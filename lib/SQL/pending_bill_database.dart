@@ -23,8 +23,9 @@ class PendingBillDatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // INCREMENT VERSION
       onCreate: _createDB,
+      onUpgrade: _onUpgrade, // ADD UPGRADE HANDLER
     );
   }
 
@@ -35,7 +36,9 @@ class PendingBillDatabaseHelper {
         data TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         sync_status TEXT NOT NULL,
-        retry_count INTEGER DEFAULT 0
+        retry_count INTEGER DEFAULT 0,
+        room_no TEXT,
+        reservation_ref_no TEXT
       )
     ''');
 
@@ -47,9 +50,25 @@ class PendingBillDatabaseHelper {
         created_at INTEGER NOT NULL,
         sync_status TEXT NOT NULL,
         retry_count INTEGER DEFAULT 0,
+        room_no TEXT,
+        reservation_ref_no TEXT,
         FOREIGN KEY (fnb_bill_no) REFERENCES pending_bill_summaries (fnb_bill_no)
       )
     ''');
+  }
+
+  // ADD UPGRADE HANDLER
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+          'ALTER TABLE pending_bill_summaries ADD COLUMN room_no TEXT');
+      await db.execute(
+          'ALTER TABLE pending_bill_summaries ADD COLUMN reservation_ref_no TEXT');
+      await db
+          .execute('ALTER TABLE pending_bill_details ADD COLUMN room_no TEXT');
+      await db.execute(
+          'ALTER TABLE pending_bill_details ADD COLUMN reservation_ref_no TEXT');
+    }
   }
 
   Future<void> insertPendingBill(
@@ -66,6 +85,8 @@ class PendingBillDatabaseHelper {
       'created_at': DateTime.now().millisecondsSinceEpoch,
       'sync_status': 'pending',
       'retry_count': 0,
+      'room_no': summary.roomNo, // ADD THIS
+      'reservation_ref_no': summary.reservationRefNo, // ADD THIS
     });
 
     // Insert details
@@ -77,6 +98,8 @@ class PendingBillDatabaseHelper {
         'created_at': DateTime.now().millisecondsSinceEpoch,
         'sync_status': 'pending',
         'retry_count': 0,
+        'room_no': detail.roomNumber, // ADD THIS
+        'reservation_ref_no': detail.reservationRefNo, // ADD THIS
       });
     }
 

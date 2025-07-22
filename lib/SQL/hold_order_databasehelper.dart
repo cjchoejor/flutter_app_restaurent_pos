@@ -11,7 +11,7 @@ class HoldOrderDatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('NewHoldOrder03.db');
+    _database = await _initDB('NewHoldOrder03.db'); // KEEP ORIGINAL NAME
     return _database!;
   }
 
@@ -19,7 +19,12 @@ class HoldOrderDatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 2, // INCREMENT VERSION
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade, // ADD UPGRADE HANDLER
+    );
   }
 
   // SQFL Table for Hold Orders
@@ -32,9 +37,21 @@ class HoldOrderDatabaseHelper {
         orderNumber TEXT,
         customerContact TEXT,
         orderDateTime TEXT,
-        menuItems TEXT
+        menuItems TEXT,
+        roomNumber TEXT,
+        reservationRefNo TEXT
       )
     ''');
+  }
+
+  // ADD UPGRADE HANDLER
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db
+          .execute('ALTER TABLE hold_orders_list ADD COLUMN roomNumber TEXT');
+      await db.execute(
+          'ALTER TABLE hold_orders_list ADD COLUMN reservationRefNo TEXT');
+    }
   }
 
   // Insert a Hold Order

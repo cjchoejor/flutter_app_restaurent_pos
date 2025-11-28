@@ -50,3 +50,20 @@ class DeleteBill extends BillEvent {
   @override
   List<Object?> get props => [fnbBillNo];
 }
+
+class UpdatePaymentStatus extends BillEvent {
+  final String fnbBillNo;
+  final String paymentStatus;
+  final double amountSettled;
+  final String paymentMode;
+
+  const UpdatePaymentStatus({
+    required this.fnbBillNo,
+    required this.paymentStatus,
+    required this.amountSettled,
+    required this.paymentMode,
+  });
+
+  @override
+  List<Object?> get props => [fnbBillNo, paymentStatus, amountSettled, paymentMode];
+}

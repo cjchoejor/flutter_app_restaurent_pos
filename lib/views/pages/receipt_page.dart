@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:pos_system_legphel/bloc/proceed_order_bloc/bloc/proceed_order_bloc.dart';
+import 'package:pos_system_legphel/bloc/bill_bloc/bill_bloc.dart';
 import 'package:pos_system_legphel/views/widgets/drawer_menu_widget.dart';
 import 'package:pos_system_legphel/models/Menu%20Model/proceed_order_model.dart';
-import 'package:excel/excel.dart';
+import 'package:pos_system_legphel/views/pages/proceed%20page/qr_code_display_page.dart';
+import 'package:pos_system_legphel/views/pages/proceed%20page/bill_service.dart';
+import 'package:excel/excel.dart' as excel;
 import 'dart:io';
 import 'package:open_filex/open_filex.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
+import 'dart:typed_data';
 
 class ReceiptPage extends StatefulWidget {
   const ReceiptPage({super.key});
@@ -30,6 +34,9 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
   final FocusNode _focusNode = FocusNode();
   bool _isFirstLoad = true;
   List<ProceedOrderModel> _allOrders = [];
+  Map<String, Map<String, dynamic>> _billDataCache = {}; // Cache bill data by order number
+  Map<String, String> _paymentStatusCache = {}; // Cache payment status by order number
+  Map<String, bool> _wasCreditCache = {}; // Cache whether bill was credit by order number
 
   // Add pagination variables
   static const int _pageSize = 30;
@@ -156,9 +163,31 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
         // Set the selectedReceiptItem to the most recent order if not already set
         if (selectedReceiptItem == null && _allOrders.isNotEmpty) {
           selectedReceiptItem = _allOrders.first;
+          // Load bill data for the first order
+          _loadBillData(selectedReceiptItem!.orderNumber);
         }
       });
     });
+  }
+
+  void _loadBillData(String orderNumber) {
+    // Trigger load bill event to fetch bill summary data
+    context.read<BillBloc>().add(LoadBill(orderNumber));
+  }
+
+  Map<String, dynamic>? _getSelectedBillData() {
+    if (selectedReceiptItem == null) return null;
+    return _billDataCache[selectedReceiptItem!.orderNumber];
+  }
+
+  String? _getSelectedPaymentStatus() {
+    if (selectedReceiptItem == null) return null;
+    return _paymentStatusCache[selectedReceiptItem!.orderNumber];
+  }
+
+  bool _getWasCredit() {
+    if (selectedReceiptItem == null) return false;
+    return _wasCreditCache[selectedReceiptItem!.orderNumber] ?? false;
   }
 
   Future<void> _selectDateRange(BuildContext context) async {
@@ -249,8 +278,8 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
       if (await Permission.manageExternalStorage.request().isGranted) {
         print('Storage permission granted'); // Debug print
         // Create Excel file
-        var excel = Excel.createExcel();
-        Sheet sheetObject = excel['Orders'];
+        var excelFile = excel.Excel.createExcel();
+        excel.Sheet sheetObject = excelFile['Orders'];
 
         // Add headers
         sheetObject.appendRow([
@@ -294,7 +323,7 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
             'orders_${DateFormat('yyyyMMdd').format(startDate!)}_to_${DateFormat('yyyyMMdd').format(endDate!)}.xlsx';
         final file = File('${excelDirectory.path}/$fileName');
 
-        final fileBytes = excel.encode();
+        final fileBytes = excelFile.encode();
         if (fileBytes != null) {
           await file.writeAsBytes(fileBytes);
 
@@ -492,18 +521,46 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
             // Right side (Detailed view)
             Expanded(
               flex: 6,
-              child: Column(
-                children: [
-                  _buildDetailHeader(),
-                  Expanded(
-                    child: Container(
-                      color: Colors.grey[200],
-                      child: selectedReceiptItem == null
-                          ? _buildEmptyDetailView()
-                          : _buildReceiptDetailView(),
+              child: BlocListener<BillBloc, BillState>(
+                listener: (context, state) {
+                  if (state is BillLoaded) {
+                    // Update bill data cache for this specific order
+                    if (selectedReceiptItem != null) {
+                      setState(() {
+                        _billDataCache[selectedReceiptItem!.orderNumber] = state.billSummary.toJson();
+                        _paymentStatusCache[selectedReceiptItem!.orderNumber] = state.billSummary.paymentStatus;
+                        // Check if was originally CREDIT/PENDING
+                        if (state.billSummary.paymentStatus == 'PENDING' || state.billSummary.paymentStatus == 'CREDIT') {
+                          _wasCreditCache[selectedReceiptItem!.orderNumber] = true;
+                        } else {
+                          _wasCreditCache[selectedReceiptItem!.orderNumber] = false;
+                        }
+                      });
+                    }
+                  } else if (state is BillSubmitted) {
+                    // Reload bill data after payment update with a small delay to allow server to process
+                    if (selectedReceiptItem != null) {
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        if (mounted) {
+                          _loadBillData(selectedReceiptItem!.orderNumber);
+                        }
+                      });
+                    }
+                  }
+                },
+                child: Column(
+                  children: [
+                    _buildDetailHeader(),
+                    Expanded(
+                      child: Container(
+                        color: Colors.grey[200],
+                        child: selectedReceiptItem == null
+                            ? _buildEmptyDetailView()
+                            : _buildReceiptDetailView(),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -670,13 +727,15 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
                   return Column(
                     children: [
                       InkWell(
-                        onTap: () {
-                          setState(() {
-                            selectedReceiptItem = proceedOrder;
-                          });
-                        },
-                        child: _buildReceiptListItem(proceedOrder),
-                      ),
+                         onTap: () {
+                           setState(() {
+                             selectedReceiptItem = proceedOrder;
+                           });
+                           // Load bill data for the selected order
+                           _loadBillData(proceedOrder.orderNumber);
+                         },
+                         child: _buildReceiptListItem(proceedOrder),
+                       ),
                       const Divider(height: 1, color: Colors.black12),
                     ],
                   );
@@ -691,10 +750,21 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
   }
 
   Widget _buildReceiptListItem(ProceedOrderModel proceedOrder) {
+    // Determine if this is the currently selected item and fetch its payment status
+    final isSelected = selectedReceiptItem?.holdOrderId == proceedOrder.holdOrderId;
+    String? paymentStatus;
+    
+    if (isSelected) {
+      final billData = _getSelectedBillData();
+      if (billData != null) {
+        paymentStatus = billData['payment_status'];
+      }
+    }
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: selectedReceiptItem?.holdOrderId == proceedOrder.holdOrderId
+        color: isSelected
             ? Colors.blue.shade50
             : Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -717,21 +787,49 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
           DateFormat('MMMM d, y – h:mm a').format(proceedOrder.orderDateTime),
           style: TextStyle(color: Colors.grey.shade600),
         ),
-        trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, color: Colors.grey),
-          onSelected: (String value) {
-            if (value == 'delete') {
-              _showDeleteConfirmationDialog(context, () {
-                context.read<ProceedOrderBloc>().add(
-                      DeleteProceedOrder(proceedOrder.holdOrderId),
-                    );
-              });
-            }
-          },
-          itemBuilder: (BuildContext context) => [
-            const PopupMenuItem<String>(
-              value: 'delete',
-              child: Text('Delete Order'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Payment status badge
+            if (paymentStatus != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getPaymentStatusColor(paymentStatus).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _getPaymentStatusColor(paymentStatus),
+                    ),
+                  ),
+                  child: Text(
+                    paymentStatus,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _getPaymentStatusColor(paymentStatus),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.grey),
+              onSelected: (String value) {
+                if (value == 'delete') {
+                  _showDeleteConfirmationDialog(context, () {
+                    context.read<ProceedOrderBloc>().add(
+                          DeleteProceedOrder(proceedOrder.holdOrderId),
+                        );
+                  });
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Text('Delete Order'),
+                ),
+              ],
             ),
           ],
         ),
@@ -1077,21 +1175,36 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
   }
 
   Widget _buildPaymentSummary() {
+    // Use bill data if available, otherwise use receipt item data
+    final billData = _getSelectedBillData();
+    final subTotal = billData?['sub_total']?.toDouble() ?? selectedReceiptItem?.menuItems.fold<double>(0, (sum, item) => sum + (double.tryParse(item.product.price) ?? 0) * item.quantity) ?? 0;
+    final bst = billData?['bst']?.toDouble() ?? 0;
+    final serviceCharge = billData?['service_charge']?.toDouble() ?? 0;
+    final total = billData?['total_amount']?.toDouble() ?? selectedReceiptItem?.totalPrice ?? 0;
+    
     return Column(
       children: [
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Subtotal', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('100 Nu', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Subtotal', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('${subTotal.toStringAsFixed(2)} Nu', style: const TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Tax', style: TextStyle(color: Colors.grey.shade600)),
-            Text('10 Nu', style: TextStyle(color: Colors.grey.shade600)),
+            Text('BST (Tax)', style: TextStyle(color: Colors.grey.shade600)),
+            Text('${bst.toStringAsFixed(2)} Nu', style: TextStyle(color: Colors.grey.shade600)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Service Charge', style: TextStyle(color: Colors.grey.shade600)),
+            Text('${serviceCharge.toStringAsFixed(2)} Nu', style: TextStyle(color: Colors.grey.shade600)),
           ],
         ),
         const SizedBox(height: 8),
@@ -1104,7 +1217,7 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
                   fontSize: 16,
                 )),
             Text(
-              '${selectedReceiptItem?.totalPrice ?? 0} Nu',
+              '${total.toStringAsFixed(2)} Nu',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
@@ -1113,8 +1226,260 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        const Divider(),
+        const SizedBox(height: 8),
+        // Payment Status Section
+        _buildPaymentStatusSection(),
       ],
     );
+  }
+
+  Widget _buildPaymentStatusSection() {
+    // Use current payment status if updated, otherwise use bill data
+    final currentStatus = _getSelectedPaymentStatus();
+    final billData = _getSelectedBillData();
+    final paymentStatus = currentStatus ?? billData?['payment_status'] ?? 'PENDING';
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Payment Status: ',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getPaymentStatusColor(paymentStatus).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _getPaymentStatusColor(paymentStatus),
+                    ),
+                  ),
+                  child: Text(
+                    paymentStatus,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _getPaymentStatusColor(paymentStatus),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        if (paymentStatus == 'PENDING' || paymentStatus == 'CREDIT') ...[
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => _showPaymentOptionsDialog(context),
+            icon: const Icon(Icons.payment, size: 18),
+            label: const Text('Pay Now'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ] else if (paymentStatus == 'PAID' && _getWasCredit()) ...[
+          // Show print button if was CREDIT and now PAID
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _printBill(),
+                  icon: const Icon(Icons.print, size: 18),
+                  label: const Text('Print Bill'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Color _getPaymentStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'PAID':
+        return Colors.green;
+      case 'CREDIT':
+        return Colors.red;
+      case 'COMPLIMENTARY':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  void _showPaymentOptionsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Payment Method'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildPaymentOptionButton('CASH', context),
+              const SizedBox(height: 12),
+              _buildPaymentOptionButton('SCAN', context),
+              const SizedBox(height: 12),
+              _buildPaymentOptionButton('CARD', context),
+              const SizedBox(height: 12),
+              _buildPaymentOptionButton('COMPLIMENTARY', context),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentOptionButton(String method, BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () async {
+          if (method == 'SCAN') {
+            // Show QR code page
+            Navigator.pop(context);
+            final bool? proceed = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const QrCodeDisplayPage(),
+              ),
+            );
+
+            // If user didn't proceed (pressed back), return
+            if (proceed != true) {
+              return;
+            }
+          } else {
+            Navigator.pop(context);
+          }
+          
+          _processPayment(method);
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: Text(method),
+      ),
+    );
+  }
+
+  void _processPayment(String paymentMethod) {
+    if (selectedReceiptItem == null) return;
+    
+    final billData = _getSelectedBillData();
+    final amountToSettle = billData?['total_amount']?.toDouble() ?? selectedReceiptItem!.totalPrice;
+    final orderNumber = selectedReceiptItem!.orderNumber;
+    
+    // Update UI state for this specific order FIRST (optimistic update)
+    setState(() {
+      _paymentStatusCache[orderNumber] = 'PAID';
+      if (billData?['payment_status'] == 'PENDING' || billData?['payment_status'] == 'CREDIT') {
+        _wasCreditCache[orderNumber] = true;
+      }
+      if (billData != null) {
+        _billDataCache[orderNumber] = {
+          ...billData,
+          'payment_status': 'PAID',
+          'amount_settled': amountToSettle,
+          'amount_remaing': 0.0,
+        };
+      }
+    });
+    
+    // Get the BillBloc and update payment status
+    context.read<BillBloc>().add(
+      UpdatePaymentStatus(
+        fnbBillNo: orderNumber,
+        paymentStatus: 'PAID',
+        amountSettled: amountToSettle,
+        paymentMode: paymentMethod,
+      ),
+    );
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Payment processed via $paymentMethod'),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _printBill() async {
+    if (selectedReceiptItem == null) return;
+    
+    final billData = _getSelectedBillData();
+    if (billData == null) return;
+
+    try {
+      final items = selectedReceiptItem!.menuItems
+          .map((item) => {
+                "menuName": item.product.menuName,
+                "quantity": item.quantity,
+                "price": (double.parse(item.product.price) * item.quantity)
+                    .toStringAsFixed(2),
+              })
+          .toList();
+
+      await BillService.generatePdf(
+        id: selectedReceiptItem!.holdOrderId,
+        user: selectedReceiptItem!.customerName,
+        phoneNo: selectedReceiptItem!.phoneNumber,
+        tableNo: selectedReceiptItem!.tableNumber,
+        items: items,
+        subTotal: billData['sub_total']?.toDouble() ?? 0,
+        bst: billData['bst']?.toDouble() ?? 0,
+        serviceTax: billData['service_charge']?.toDouble() ?? 0,
+        totalQuantity: selectedReceiptItem!.menuItems.fold(0, (sum, item) => sum + item.quantity),
+        date: DateFormat('MMMM dd, yyyy').format(selectedReceiptItem!.orderDateTime),
+        time: DateFormat('hh:mm a').format(selectedReceiptItem!.orderDateTime),
+        totalAmount: billData['total_amount']?.toDouble() ?? 0,
+        payMode: billData['payment_mode'] ?? 'PAID',
+        orderNumber: selectedReceiptItem!.orderNumber,
+        branchName: selectedReceiptItem!.restaurantBranchName,
+        discount: billData['discount']?.toDouble() ?? 0,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bill sent to printer'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to print bill: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _handleExport(BuildContext context) {

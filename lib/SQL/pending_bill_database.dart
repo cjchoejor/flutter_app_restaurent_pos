@@ -116,6 +116,14 @@ class PendingBillDatabaseHelper {
     );
   }
 
+  Future<List<Map<String, dynamic>>> getAllBillSummaries() async {
+    final db = await database;
+    return await db.query(
+      'pending_bill_summaries',
+      orderBy: 'created_at DESC',
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getPendingBillDetails(
       String fnbBillNo) async {
     final db = await database;
@@ -181,5 +189,74 @@ class PendingBillDatabaseHelper {
     );
 
     await batch.commit();
+  }
+
+  Future<void> updateBillSummaryData(
+    String fnbBillNo,
+    BillSummaryModel updatedSummary,
+  ) async {
+    final db = await database;
+    
+    await db.update(
+      'pending_bill_summaries',
+      {
+        'data': jsonEncode(updatedSummary.toJson()),
+        'sync_status': 'synced', // Mark as synced if successfully updated
+      },
+      where: 'fnb_bill_no = ?',
+      whereArgs: [fnbBillNo],
+    );
+  }
+
+  Future<Map<String, dynamic>?> getBillSummaryData(String fnbBillNo) async {
+    final db = await database;
+    final results = await db.query(
+      'pending_bill_summaries',
+      where: 'fnb_bill_no = ?',
+      whereArgs: [fnbBillNo],
+      limit: 1,
+    );
+
+    if (results.isEmpty) return null;
+    
+    final bill = results.first;
+    final data = jsonDecode(bill['data'] as String) as Map<String, dynamic>;
+    return data;
+  }
+
+  Future<void> updatePaymentStatus(
+    String fnbBillNo,
+    String paymentStatus,
+    double amountSettled,
+    String paymentMode,
+  ) async {
+    final db = await database;
+    
+    // Get current bill data
+    final currentData = await getBillSummaryData(fnbBillNo);
+    if (currentData == null) {
+      throw Exception('Bill not found');
+    }
+
+    // Update payment fields in the JSON data
+    currentData['payment_status'] = paymentStatus;
+    currentData['amount_settled'] = amountSettled;
+    currentData['payment_mode'] = paymentMode;
+    if (paymentStatus == 'PAID') {
+      currentData['amount_remaing'] = 0.0;
+    }
+
+    // Update the record
+    await db.update(
+      'pending_bill_summaries',
+      {
+        'data': jsonEncode(currentData),
+        'sync_status': 'synced',
+      },
+      where: 'fnb_bill_no = ?',
+      whereArgs: [fnbBillNo],
+    );
+
+    print('Updated payment status in local database for $fnbBillNo: $paymentStatus');
   }
 }

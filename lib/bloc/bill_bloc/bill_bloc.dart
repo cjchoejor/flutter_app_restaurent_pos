@@ -87,11 +87,8 @@ class BillBloc extends Bloc<BillEvent, BillState> {
           print('Successfully submitted bill detail');
         }
 
-        // If online submission succeeds, delete from local storage
-        print(
-            'Successfully submitted all bill data online, removing from local storage');
-        await _dbHelper.deleteSyncedBill(event.billSummary.fnbBillNo);
-        print('Successfully removed bill from local storage');
+        // Keep bill in local storage for payment status updates and future reference
+        print('Successfully submitted all bill data online. Keeping in local storage for payment updates.');
       } catch (e) {
         print('Error submitting bill online: $e');
         // Keep the bill in local storage for later sync
@@ -139,10 +136,34 @@ class BillBloc extends Bloc<BillEvent, BillState> {
       final summaryResponse = await http.get(
         Uri.parse(
             '$baseUrl/api/fnb_bill_summary_legphel_eats/${event.fnbBillNo}'),
-      );
+      ).timeout(const Duration(seconds: 5));
 
       if (summaryResponse.statusCode != 200) {
-        throw Exception('Failed to load bill summary: ${summaryResponse.body}');
+        print('Server returned ${summaryResponse.statusCode}, attempting to load from local database');
+        // Fall back to local database if server fails
+        try {
+          final allBills = await _dbHelper.getAllBillSummaries();
+          final bill = allBills.firstWhere(
+            (b) => b['fnb_bill_no'] == event.fnbBillNo,
+            orElse: () => throw Exception('Bill not found in local database'),
+          );
+
+          final summary = BillSummaryModel.fromJson(
+            jsonDecode(bill['data'] as String),
+          );
+
+          final details = await _dbHelper.getPendingBillDetails(event.fnbBillNo);
+          final billDetails = details
+              .map((detail) =>
+                  BillDetailsModel.fromJson(jsonDecode(detail['data'] as String)))
+              .toList();
+
+          print('Loaded bill ${event.fnbBillNo} from local database (fallback) with status: ${summary.paymentStatus}');
+          emit(BillLoaded(billSummary: summary, billDetails: billDetails));
+          return;
+        } catch (localError) {
+          throw Exception('Failed to load bill summary: ${summaryResponse.body}');
+        }
       }
 
       final summary =
@@ -151,7 +172,7 @@ class BillBloc extends Bloc<BillEvent, BillState> {
       final detailsResponse = await http.get(
         Uri.parse(
             '$baseUrl/api/fnb_bill_details_legphel_eats?fnb_bill_no=${event.fnbBillNo}'),
-      );
+      ).timeout(const Duration(seconds: 5));
 
       if (detailsResponse.statusCode != 200) {
         throw Exception('Failed to load bill details: ${detailsResponse.body}');
@@ -162,6 +183,31 @@ class BillBloc extends Bloc<BillEvent, BillState> {
           detailsJson.map((json) => BillDetailsModel.fromJson(json)).toList();
 
       emit(BillLoaded(billSummary: summary, billDetails: details));
+    } on http.ClientException catch (e) {
+      // Handle network timeouts and connection errors
+      print('Network error: $e, attempting to load from local database');
+      try {
+        final allBills = await _dbHelper.getAllBillSummaries();
+        final bill = allBills.firstWhere(
+          (b) => b['fnb_bill_no'] == event.fnbBillNo,
+          orElse: () => throw Exception('Bill not found in local database'),
+        );
+
+        final summary = BillSummaryModel.fromJson(
+          jsonDecode(bill['data'] as String),
+        );
+
+        final details = await _dbHelper.getPendingBillDetails(event.fnbBillNo);
+        final billDetails = details
+            .map((detail) =>
+                BillDetailsModel.fromJson(jsonDecode(detail['data'] as String)))
+            .toList();
+
+        print('Loaded bill ${event.fnbBillNo} from local database (network fallback) with status: ${summary.paymentStatus}');
+        emit(BillLoaded(billSummary: summary, billDetails: billDetails));
+      } catch (localError) {
+        emit(BillError('Network error and unable to load from local database: ${localError.toString()}'));
+      }
     } catch (e) {
       emit(BillError(e.toString()));
     }
@@ -276,88 +322,95 @@ class BillBloc extends Bloc<BillEvent, BillState> {
     try {
       emit(BillLoading());
 
-      final isConnected = await _networkService.isConnected();
-      final isServerAvailable = await _networkService.isServerAvailable();
-
-      if (!isConnected || !isServerAvailable) {
-        print('Network unavailable, cannot update payment status');
-        emit(BillError('Network unavailable'));
+      // First, ensure bill exists locally
+      final localData = await _dbHelper.getBillSummaryData(event.fnbBillNo);
+      if (localData == null) {
+        print('Error: Bill not found in local database for ${event.fnbBillNo}');
+        emit(BillError('Bill not found. Please ensure the bill has been created.'));
         return;
       }
 
-      // Try to update payment status online
+      final isConnected = await _networkService.isConnected();
+      final isServerAvailable = await _networkService.isServerAvailable();
+
+      print('Updating payment status for ${event.fnbBillNo}: Network connected=$isConnected, Server available=$isServerAvailable');
+
+      // Update local database first (always do this)
       try {
-        // First fetch the current bill data to preserve existing fields
-        Map<String, dynamic> currentBill;
-        
-        final fetchResponse = await http.get(
-          Uri.parse(
-              '$baseUrl/api/fnb_bill_summary_legphel_eats/${event.fnbBillNo}'),
+        await _dbHelper.updatePaymentStatus(
+          event.fnbBillNo,
+          event.paymentStatus,
+          event.amountSettled,
+          event.paymentMode,
         );
+        print('Updated local SQLite database with payment status: ${event.paymentStatus}');
+      } catch (dbError) {
+        print('Error updating local database: $dbError');
+        emit(BillError('Failed to update local database: $dbError'));
+        return;
+      }
 
-        if (fetchResponse.statusCode == 200) {
-          // Bill exists on server, use server data
-          currentBill = jsonDecode(fetchResponse.body);
-          print('Fetched bill data from server');
-        } else {
-          // Bill doesn't exist on server yet, try to get from local database
-          print('Bill not found on server (${fetchResponse.statusCode}), trying local database');
-          final localData = await _dbHelper.getBillSummaryData(event.fnbBillNo);
-          if (localData == null) {
-            throw Exception('Bill not found on server or in local database');
-          }
-          currentBill = localData;
-          print('Using bill data from local database');
-        }
-
-        // Create update data with only the payment-related fields (PATCH endpoint)
-        final updateData = {
-          'payment_status': event.paymentStatus,
-          'amount_settled': event.amountSettled,
-          'amount_remaing': event.paymentStatus == 'PAID' ? 0.0 : (currentBill['amount_remaing'] as num?)?.toDouble() ?? 0.0,
-          'payment_mode': event.paymentMode,
-        };
-
-        print('Sending PATCH request to update payment status: $updateData');
-
-        final response = await http.patch(
-          Uri.parse(
-              '$baseUrl/api/fnb_bill_summary_legphel_eats/${event.fnbBillNo}'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(updateData),
-        );
-
-        if (response.statusCode != 200) {
-          throw Exception(
-              'Failed to update payment status: ${response.body}');
-        }
-
-        print('Successfully updated payment status for ${event.fnbBillNo}');
-
-        // Update local SQLite database with new payment status
+      // Try to update on server if connected
+      if (isConnected && isServerAvailable) {
         try {
-          await _dbHelper.updatePaymentStatus(
-            event.fnbBillNo,
-            event.paymentStatus,
-            event.amountSettled,
-            event.paymentMode,
-          );
-          print('Updated local SQLite database with payment status: ${event.paymentStatus}');
-        } catch (dbError) {
-          print('Error updating local database: $dbError');
-        }
+          // First fetch the current bill data to preserve existing fields
+          Map<String, dynamic> currentBill;
+          
+          final fetchResponse = await http.get(
+            Uri.parse(
+                '$baseUrl/api/fnb_bill_summary_legphel_eats/${event.fnbBillNo}'),
+          ).timeout(const Duration(seconds: 5));
 
-        // Delete from pending bills if payment is complete
-        if (event.paymentStatus == 'PAID') {
+          if (fetchResponse.statusCode == 200) {
+            currentBill = jsonDecode(fetchResponse.body);
+            print('Fetched bill data from server');
+          } else {
+            print('Bill not found on server (${fetchResponse.statusCode}), using local data');
+            currentBill = localData;
+          }
+
+          // Create update data with only the payment-related fields (PATCH endpoint)
+          final updateData = {
+            'payment_status': event.paymentStatus,
+            'amount_settled': event.amountSettled,
+            'amount_remaing': event.paymentStatus == 'PAID' ? 0.0 : (currentBill['amount_remaing'] as num?)?.toDouble() ?? 0.0,
+            'payment_mode': event.paymentMode,
+          };
+
+          print('Sending PATCH request to update payment status: $updateData');
+
+          final response = await http.patch(
+            Uri.parse(
+                '$baseUrl/api/fnb_bill_summary_legphel_eats/${event.fnbBillNo}'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(updateData),
+          ).timeout(const Duration(seconds: 5));
+
+          if (response.statusCode != 200) {
+            print('Server PATCH failed (${response.statusCode}): ${response.body}');
+            print('Payment status updated locally. Server sync will be retried later.');
+          } else {
+            print('Successfully updated payment status on server for ${event.fnbBillNo}');
+          }
+        } catch (e) {
+          print('Error updating on server: $e. Payment status updated locally.');
+          // Don't emit error - local update succeeded
+        }
+      } else {
+        print('Network unavailable, payment status updated locally only');
+      }
+
+      // Delete from pending bills if payment is complete
+      if (event.paymentStatus == 'PAID') {
+        try {
           await _dbHelper.deleteSyncedBill(event.fnbBillNo);
           print('Removed bill from pending bills');
+        } catch (e) {
+          print('Error deleting synced bill: $e');
         }
-
-        emit(BillSubmitted(event.fnbBillNo));
-      } catch (e) {
-        print('Error updating payment status: $e');
-        emit(BillError(e.toString()));
       }
+
+      emit(BillSubmitted(event.fnbBillNo));
     } catch (e) {
       print('Error in _onUpdatePaymentStatus: $e');
       emit(BillError(e.toString()));

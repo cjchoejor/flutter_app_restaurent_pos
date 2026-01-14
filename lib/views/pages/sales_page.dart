@@ -1802,9 +1802,10 @@ class _SalesPageState extends State<SalesPage> {
             prefs.getDouble(TaxSettingsBloc.serviceChargeKey) ?? 0.0;
 
         // Calculate tax amounts based on checkbox states
-        final bstAmount = _applyBst ? totalAmount * (bst / 100) : 0.0;
         final serviceChargeAmount =
             _applyServiceCharge ? totalAmount * (serviceCharge / 100) : 0.0;
+        final bstAmount =
+            _applyBst ? (totalAmount + serviceChargeAmount) * (bst / 100) : 0.0;
         final payableAmount = totalAmount + bstAmount + serviceChargeAmount;
 
         return Container(
@@ -1868,7 +1869,7 @@ class _SalesPageState extends State<SalesPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        "B.S.T ${bst.toStringAsFixed(1)}%",
+                        "G.S.T ${bst.toStringAsFixed(1)}%",
                         style: TextStyle(
                           color: _applyBst
                               ? const Color(0xFF2E7D32)

@@ -92,8 +92,8 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
     // Then apply fixed discount
     amount = amount - fixedDiscount;
 
-    bstCalculated = amount * (widget.bst / 100);
     serviceChargeCalculated = amount * (widget.serviceTax / 100);
+    bstCalculated = (amount + serviceChargeCalculated) * (widget.bst / 100);
 
     // Calculate BST and service tax as percentages on the discounted amount
     // double bstAmount = amount * (widget.bst / widget.subTotal);
@@ -660,7 +660,7 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
                                           MainAxisAlignment.spaceBetween,
                                       children: [
                                         const Text(
-                                          'BST',
+                                          'GST',
                                           style: TextStyle(
                                             fontSize: 16,
                                             color: Colors.grey,
@@ -995,67 +995,67 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
           }
 
           // clears the history form the front page you know
-           context.read<MenuBloc>().add(RemoveAllFromCart());
-           
-           // Determine payment status based on payment method
-           String paymentStatus;
-           double amountSettled;
-           double amountRemaining;
-           
-           switch (method) {
-             case 'CASH':
-             case 'SCAN':
-             case 'CARD':
-               paymentStatus = 'PAID';
-               amountSettled = finalAmount;
-               amountRemaining = 0;
-               break;
-             case 'CREDIT':
-               paymentStatus = 'PENDING';
-               amountSettled = 0;
-               amountRemaining = finalAmount;
-               break;
-             case 'COMPLIMENTARY':
-               paymentStatus = 'COMPLIMENTARY';
-               amountSettled = finalAmount;
-               amountRemaining = 0;
-               break;
-             default:
-               paymentStatus = 'PAID';
-               amountSettled = finalAmount;
-               amountRemaining = 0;
-           }
-           
-           // Create bill summary
-           final billSummary = BillSummaryModel(
-             fnbBillNo: widget.orderNumber,
-             primaryCustomerName: widget.customerName.isNotEmpty
-                 ? widget.customerName
-                 : "Walk-in Customer", // Use the customer name from sales page
-             phoneNo: widget.phoneNumber.isNotEmpty
-                 ? widget.phoneNumber
-                 : "N/A", // Use the phone from sales page
-             tableNo: widget.tableNumber,
-             pax: 1,
-             outlet: widget.branchName,
-             orderType: selectedServiceType,
-             subTotal: amountAfterDiscount,
-             bst: bstCalculated,
-             serviceCharge: serviceChargeCalculated,
-             discount: (percentageDiscount > 0
-                     ? (widget.subTotal * percentageDiscount / 100)
-                     : 0) +
-                 fixedDiscount,
-             totalAmount: finalAmount,
-             paymentStatus: paymentStatus,
-             amountSettled: amountSettled,
-             amountRemaining: amountRemaining,
-             paymentMode: method,
-             date: DateTime.now(),
-             time: DateTime.now(),
-             roomNo: widget.roomNumber, // ADD THIS
-             reservationRefNo: widget.reservationRefNo, // ADD THIS
-           );
+          context.read<MenuBloc>().add(RemoveAllFromCart());
+
+          // Determine payment status based on payment method
+          String paymentStatus;
+          double amountSettled;
+          double amountRemaining;
+
+          switch (method) {
+            case 'CASH':
+            case 'SCAN':
+            case 'CARD':
+              paymentStatus = 'PAID';
+              amountSettled = finalAmount;
+              amountRemaining = 0;
+              break;
+            case 'CREDIT':
+              paymentStatus = 'PENDING';
+              amountSettled = 0;
+              amountRemaining = finalAmount;
+              break;
+            case 'COMPLIMENTARY':
+              paymentStatus = 'COMPLIMENTARY';
+              amountSettled = finalAmount;
+              amountRemaining = 0;
+              break;
+            default:
+              paymentStatus = 'PAID';
+              amountSettled = finalAmount;
+              amountRemaining = 0;
+          }
+
+          // Create bill summary
+          final billSummary = BillSummaryModel(
+            fnbBillNo: widget.orderNumber,
+            primaryCustomerName: widget.customerName.isNotEmpty
+                ? widget.customerName
+                : "Walk-in Customer", // Use the customer name from sales page
+            phoneNo: widget.phoneNumber.isNotEmpty
+                ? widget.phoneNumber
+                : "N/A", // Use the phone from sales page
+            tableNo: widget.tableNumber,
+            pax: 1,
+            outlet: widget.branchName,
+            orderType: selectedServiceType,
+            subTotal: amountAfterDiscount,
+            bst: bstCalculated,
+            serviceCharge: serviceChargeCalculated,
+            discount: (percentageDiscount > 0
+                    ? (widget.subTotal * percentageDiscount / 100)
+                    : 0) +
+                fixedDiscount,
+            totalAmount: finalAmount,
+            paymentStatus: paymentStatus,
+            amountSettled: amountSettled,
+            amountRemaining: amountRemaining,
+            paymentMode: method,
+            date: DateTime.now(),
+            time: DateTime.now(),
+            roomNo: widget.roomNumber, // ADD THIS
+            reservationRefNo: widget.reservationRefNo, // ADD THIS
+          );
 
           // Create bill details
           const uuid = Uuid();

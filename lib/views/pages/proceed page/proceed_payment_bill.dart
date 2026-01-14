@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bill_service.dart';
 import 'dart:typed_data';
 import 'qr_code_display_page.dart';
+import 'package:pos_system_legphel/bloc/tax_settings_bloc/bloc/tax_settings_bloc.dart';
 
 class ProceedPaymentBill extends StatelessWidget {
   final String id;
@@ -404,7 +406,7 @@ class ProceedPaymentBill extends StatelessWidget {
                                 padding: EdgeInsets.symmetric(vertical: 12),
                                 child: Divider(thickness: 1.5),
                               ),
-                              _buildSummaryRow("BST", bst.toStringAsFixed(2)),
+                              _buildSummaryRow("GST", bst.toStringAsFixed(2)),
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 4),
                               ),
@@ -462,30 +464,44 @@ class ProceedPaymentBill extends StatelessWidget {
                               ElevatedButton.icon(
                                 icon: const Icon(Icons.receipt_long),
                                 label: const Text("Thermal Print"),
-                                onPressed: () => BillService.printWithEscPos(
-                                  context: context,
-                                  id: id,
-                                  discount: discount,
-                                  user: user,
-                                  phoneNo: phoneNo,
-                                  tableNo: tableNo,
-                                  roomNumber: roomNumber, // ADD THIS
-                                  reservationRefNo:
-                                      reservationRefNo, // ADD THIS
-                                  items: items,
-                                  subTotal: subTotal,
-                                  bst: subTotal / bst,
-                                  bstAmt: bst,
-                                  serviceAmt: serviceTax,
-                                  serviceTax: subTotal / serviceTax,
-                                  totalQuantity: totalQuantity,
-                                  date: date,
-                                  time: time,
-                                  totalAmount: totalAmount,
-                                  payMode: payMode,
-                                  orderNumber: orderNumber,
-                                  branchName: branchName,
-                                ),
+                                onPressed: () {
+                                  final taxBloc =
+                                      context.read<TaxSettingsBloc>();
+                                  final taxState = taxBloc.state;
+
+                                  if (taxState is TaxSettingsLoaded) {
+                                    // Recalculate amounts using current tax settings
+                                    final newServiceAmt = subTotal *
+                                        (taxState.serviceCharge / 100);
+                                    final newGstAmt =
+                                        (subTotal + newServiceAmt) *
+                                            (taxState.bst / 100);
+
+                                    BillService.printWithEscPos(
+                                      context: context,
+                                      id: id,
+                                      discount: discount,
+                                      user: user,
+                                      phoneNo: phoneNo,
+                                      tableNo: tableNo,
+                                      roomNumber: roomNumber,
+                                      reservationRefNo: reservationRefNo,
+                                      items: items,
+                                      subTotal: subTotal,
+                                      bst: taxState.bst,
+                                      bstAmt: newGstAmt,
+                                      serviceAmt: newServiceAmt,
+                                      serviceTax: taxState.serviceCharge,
+                                      totalQuantity: totalQuantity,
+                                      date: date,
+                                      time: time,
+                                      totalAmount: totalAmount,
+                                      payMode: payMode,
+                                      orderNumber: orderNumber,
+                                      branchName: branchName,
+                                    );
+                                  }
+                                },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green.shade600,
                                   foregroundColor: Colors.white,

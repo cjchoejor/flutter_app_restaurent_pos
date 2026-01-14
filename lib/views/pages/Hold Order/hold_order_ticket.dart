@@ -265,7 +265,7 @@ class HoldOrderTicket {
     buffer.write(doubleHeight);
     buffer.write('KOT\n');
     buffer.write(leftAlign);
-    buffer.write('LEGPHEL EATS\n');
+    buffer.write('LEGPHEL HOTEL\n');
     buffer.write('Order no: #$orderNumber\n\n');
     buffer.write(boldOff);
     buffer.write(normalHeight);
@@ -340,131 +340,39 @@ class HoldOrderTicket {
     // buffer.write(feed);
     // buffer.write(cut);
 
-// === KOT Section ===
-    buffer.write(centerAlign);
-    buffer.write(boldOn);
-    buffer.write(doubleHeight);
-    buffer.write('Order Summary\n');
-    buffer.write(leftAlign);
-    buffer.write('LEGPHEL EATS\n');
-    buffer.write('Order no: #$orderNumber\n\n');
-    buffer.write(boldOff);
-    buffer.write(normalHeight);
-
-    buffer.write(leftAlign);
-    buffer.write('Date : $date  ');
-    buffer.write('Time : $time\n');
-    // buffer.write('User   : $user\n');
-    // buffer.write('Contact: $contact\n');
-    // buffer.write('Table  : $tableNumber\n\n');
-
-    buffer.write('-' * maxWidth + '\n');
-    buffer.write(boldOn);
-    buffer.write('Items Ordered\n');
-    buffer.write(boldOff);
-    buffer.write('-' * maxWidth + '\n');
-
-    for (var item in nonBeverageItems) {
-      buffer.writeln(formatItemLine(
-          item.product.menuName, item.quantity, item.totalPrice));
-    }
-
-    buffer.write('-' * maxWidth + '\n\n');
-
     // === BOT Section ===
-    buffer.write(init);
-    buffer.write(centerAlign);
-    buffer.write(boldOn);
-    buffer.write(doubleHeight);
-    buffer.write('BOT\n');
-    buffer.write(normalHeight);
-    buffer.write(boldOff);
+    if (beverageItems.isNotEmpty) {
+      buffer.write(init);
+      buffer.write(centerAlign);
+      buffer.write(boldOn);
+      buffer.write(doubleHeight);
+      buffer.write('BOT\n');
+      buffer.write(normalHeight);
+      buffer.write(boldOff);
 
-    buffer.write(leftAlign);
-    buffer.write('-' * maxWidth + '\n');
-    buffer.write(boldOn);
-    buffer.write('Items Ordered\n');
-    buffer.write(boldOff);
-    buffer.write('-' * maxWidth + '\n');
+      buffer.write(leftAlign);
+      buffer.write('-' * maxWidth + '\n');
+      buffer.write(boldOn);
+      buffer.write('Items Ordered\n');
+      buffer.write(boldOff);
+      buffer.write('-' * maxWidth + '\n');
 
-    for (var item in beverageItems) {
-      buffer.writeln(formatItemLine(
-          item.product.menuName, item.quantity, item.totalPrice));
+      for (var item in beverageItems) {
+        buffer.writeln(formatItemLine(
+            item.product.menuName, item.quantity, item.totalPrice));
+      }
+
+      buffer.write('-' * maxWidth + '\n');
+
+      buffer.write(boldOn);
+      buffer.write(doubleHeight);
+      buffer.write('\n\nOrder no: #$orderNumber\n\n');
+      buffer.write(normalHeight);
+      buffer.write(boldOff);
+
+      buffer.write(feed);
+      buffer.write(cut);
     }
-
-    buffer.write('-' * maxWidth + '\n');
-
-    buffer.write(boldOn);
-    buffer.write(doubleHeight);
-    buffer.write('\n\nOrder no: #$orderNumber\n\n');
-    buffer.write(normalHeight);
-    buffer.write(boldOff);
-
-    buffer.write(feed);
-    buffer.write(cut);
-
-    // === KOT Section ===
-    buffer.write(centerAlign);
-    buffer.write(boldOn);
-    buffer.write(doubleHeight);
-    buffer.write('Order Summary\n');
-    buffer.write(leftAlign);
-    buffer.write('LEGPHEL EATS\n');
-    buffer.write('Order no: #$orderNumber\n\n');
-    buffer.write(boldOff);
-    buffer.write(normalHeight);
-
-    buffer.write(leftAlign);
-    buffer.write('Date : $date  ');
-    buffer.write('Time : $time\n');
-    // buffer.write('User   : $user\n');
-    // buffer.write('Contact: $contact\n');
-    // buffer.write('Table  : $tableNumber\n\n');
-
-    buffer.write('-' * maxWidth + '\n');
-    buffer.write(boldOn);
-    buffer.write('Items Ordered\n');
-    buffer.write(boldOff);
-    buffer.write('-' * maxWidth + '\n');
-
-    for (var item in nonBeverageItems) {
-      buffer.writeln(formatItemLine(
-          item.product.menuName, item.quantity, item.totalPrice));
-    }
-
-    buffer.write('-' * maxWidth + '\n\n');
-
-    // === BOT Section ===
-    buffer.write(init);
-    buffer.write(centerAlign);
-    buffer.write(boldOn);
-    buffer.write(doubleHeight);
-    buffer.write('BOT\n');
-    buffer.write(normalHeight);
-    buffer.write(boldOff);
-
-    buffer.write(leftAlign);
-    buffer.write('-' * maxWidth + '\n');
-    buffer.write(boldOn);
-    buffer.write('Items Ordered\n');
-    buffer.write(boldOff);
-    buffer.write('-' * maxWidth + '\n');
-
-    for (var item in beverageItems) {
-      buffer.writeln(formatItemLine(
-          item.product.menuName, item.quantity, item.totalPrice));
-    }
-
-    buffer.write('-' * maxWidth + '\n');
-
-    buffer.write(boldOn);
-    buffer.write(doubleHeight);
-    buffer.write('\n\nOrder no: #$orderNumber\n\n');
-    buffer.write(normalHeight);
-    buffer.write(boldOff);
-
-    buffer.write(feed);
-    buffer.write(cut);
 
     return buffer.toString();
   }

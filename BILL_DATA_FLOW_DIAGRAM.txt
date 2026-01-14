@@ -1,0 +1,282 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                     BILL DATA FLOW IN RECEIPT_PAGE.DART                         ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 1. INITIALIZATION                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   didChangeDependencies()                                                    │
+│     ↓                                                                        │
+│   _processOrders(orders)  ← Called when ProceedOrderBloc loads orders       │
+│     ↓                                                                        │
+│   setState({                                                                │
+│     _allOrders = orders.reversed.toList()                                  │
+│     selectedReceiptItem = _allOrders.first  ← Select first order           │
+│     _loadBillData(selectedReceiptItem!.orderNumber)  ← Load bill           │
+│   })                                                                         │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 2. LOAD BILL DATA                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   _loadBillData(orderNumber)                                                │
+│     ↓                                                                        │
+│   context.read<BillBloc>().add(LoadBill(orderNumber))                      │
+│     ↓                                                                        │
+│   BillBloc._onLoadBill(event)                                              │
+│     ↓                                                                        │
+│   ┌─ Network Check ─┐                                                      │
+│   │                 │                                                       │
+│   ├→ IF ONLINE:     → GET /api/fnb_bill_summary_legphel_eats/{orderNo}    │
+│   │                   Parse JSON Response                                  │
+│   │                                                                         │
+│   ├→ IF OFFLINE:    → Query SQLite: pending_bill_database                 │
+│   │                   Parse stored JSON                                    │
+│   │                                                                         │
+│   └─ Return BillSummaryModel ─┘                                           │
+│     ↓                                                                        │
+│   emit(BillLoaded(billSummary, billDetails))                              │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 3. BLOCLISTENER CATCHES BILLLOADED STATE                                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   BlocListener<BillBloc, BillState>(                                        │
+│     listener: (context, state) {                                            │
+│       if (state is BillLoaded) {                                            │
+│         setState(() {                                                       │
+│           // Cache 1: Full bill data                                        │
+│           _billDataCache[orderNumber] =                                     │
+│             state.billSummary.toJson()                                      │
+│           // ↑ This is a Map<String, dynamic> with 20+ fields             │
+│                                                                             │
+│           // Cache 2: Payment status only                                   │
+│           _paymentStatusCache[orderNumber] =                               │
+│             state.billSummary.paymentStatus                                │
+│                                                                             │
+│           // Cache 3: Was this originally credit?                           │
+│           if (paymentStatus == 'PENDING' || == 'CREDIT') {                 │
+│             _wasCreditCache[orderNumber] = true                            │
+│           }                                                                 │
+│         });                                                                │
+│       }                                                                     │
+│     }                                                                       │
+│   )                                                                         │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 4. BUILD RECEIPT LIST ITEM                                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   Widget _buildReceiptListItem(ProceedOrderModel proceedOrder) {            │
+│                                                                              │
+│     // Get cached bill data                                                 │
+│     final billData = _getSelectedBillData()                                 │
+│     // ↑ Returns _billDataCache[orderNumber] or null                       │
+│                                                                              │
+│     // Extract payment status                                               │
+│     if (billData != null) {                                                 │
+│       paymentStatus = billData['payment_status']                           │
+│       // ↑ Can be: "PAID", "CREDIT", "COMPLIMENTARY", "PENDING"           │
+│     }                                                                       │
+│                                                                              │
+│     // Build ListTile                                                       │
+│     return ListTile(                                                        │
+│       title: Text('Order #${proceedOrder.orderNumber.split('-')[2]}')      │
+│       // ↑ From ProceedOrderModel                                          │
+│                                                                              │
+│       subtitle: Text(proceedOrder.orderDateTime.format(...))               │
+│       // ↑ From ProceedOrderModel                                          │
+│                                                                              │
+│       trailing: Container(                                                  │
+│         color: _getPaymentStatusColor(paymentStatus),                      │
+│         child: Text(paymentStatus)                                         │
+│         // ↑ From billData['payment_status']                               │
+│       )                                                                     │
+│     );                                                                     │
+│   }                                                                          │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 5. USER CLICKS ORDER IN LIST                                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   InkWell(                                                                   │
+│     onTap: () {                                                             │
+│       setState(() {                                                         │
+│         selectedReceiptItem = proceedOrder  ← Update selected order        │
+│       });                                                                   │
+│       _loadBillData(proceedOrder.orderNumber)  ← Reload bill               │
+│     }                                                                       │
+│   )                                                                         │
+│     ↓                                                                        │
+│   Goes back to Step 2: LOAD BILL DATA                                      │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 6. BUILD RECEIPT DETAIL VIEW (Right Panel)                                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   _buildReceiptDetailView()                                                 │
+│     ↓                                                                        │
+│   Uses billData from _getSelectedBillData()                                │
+│     ↓                                                                        │
+│   Displays ALL columns:                                                     │
+│   • Customer name → billData['primary_customer_name']                      │
+│   • Table → billData['table_no']                                           │
+│   • Items list → billData (shown in detail)                               │
+│   • Sub total → billData['sub_total']                                      │
+│   • BST → billData['bst']                                                  │
+│   • Service charge → billData['service_charge']                            │
+│   • Total → billData['total_amount']                                       │
+│   • Payment status → billData['payment_status']  ← WITH COLORS            │
+│     ↓                                                                        │
+│   Shows "Pay Now" button if payment_status == "PENDING" or "CREDIT"       │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 7. PAYMENT FLOW (When "Pay Now" Clicked)                                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   _showPaymentOptionsDialog()                                               │
+│     ↓                                                                        │
+│   User selects: CASH / CARD / SCAN / COMPLIMENTARY                        │
+│     ↓                                                                        │
+│   _processPayment(method)                                                  │
+│     ↓                                                                        │
+│   ┌─ Validate Bill Data ─┐                                                │
+│   │ if (billData == null)                                                 │
+│   │   → Show "Loading..." and reload                                      │
+│   │   → Return                                                             │
+│   └──────────────────────┘                                                │
+│     ↓                                                                        │
+│   setState({                                                                │
+│     // Update cache (optimistic UI update)                                 │
+│     _billDataCache[orderNumber] = {                                        │
+│       ...billData,                                                          │
+│       'payment_status': 'PAID',  ← Changed                                │
+│       'amount_settled': amount,  ← Changed                                │
+│       'amount_remaing': 0.0,  ← Changed                                   │
+│     };                                                                      │
+│     _paymentStatusCache[orderNumber] = 'PAID';                            │
+│   });                                                                       │
+│     ↓                                                                        │
+│   BillBloc.add(UpdatePaymentStatus(                                        │
+│     fnbBillNo: orderNumber,                                               │
+│     paymentStatus: 'PAID',                                                │
+│     amountSettled: amount,                                                │
+│     paymentMode: method  ← CASH/CARD/SCAN/COMPLIMENTARY                 │
+│   ))                                                                        │
+│     ↓                                                                        │
+│   BillBloc._onUpdatePaymentStatus()                                        │
+│     ↓                                                                        │
+│   ┌─ Update Local DB ─┐                                                   │
+│   │ UPDATE pending_bill_summaries                                         │
+│   │ SET data = {...with PAID status...}                                  │
+│   │ WHERE fnb_bill_no = orderNumber                                      │
+│   └───────────────────┘                                                   │
+│     ↓                                                                        │
+│   ┌─ Try Server Update ─┐                                                 │
+│   │ PATCH /api/fnb_bill_summary_legphel_eats/{orderNumber}               │
+│   │ Body: {                                                               │
+│   │   'payment_status': 'PAID',                                           │
+│   │   'amount_settled': amount,                                           │
+│   │   'amount_remaing': 0.0,                                              │
+│   │   'payment_mode': method                                              │
+│   │ }                                                                      │
+│   └────────────────────┘                                                  │
+│     ↓                                                                        │
+│   ┌─ Delete from Pending ─┐                                               │
+│   │ DELETE FROM pending_bill_summaries                                    │
+│   │ WHERE fnb_bill_no = orderNumber                                      │
+│   └──────────────────────┘                                                │
+│     ↓                                                                        │
+│   emit(BillSubmitted(orderNumber))                                         │
+│     ↓                                                                        │
+│   BlocListener catches BillSubmitted                                       │
+│     ↓                                                                        │
+│   Future.delayed(500ms) → _loadBillData(orderNumber)                      │
+│   (Reload bill to get latest status from server)                          │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                          DATA SOURCES AT EACH STEP                             ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────┬──────────────────────┬──────────────────────────┐
+│ Component                  │ Data Source          │ Key Fields              │
+├────────────────────────────┼──────────────────────┼──────────────────────────┤
+│ List Item Display          │ • ProceedOrderModel  │ • order number          │
+│                            │ • billData cache     │ • order date            │
+│                            │                      │ • payment_status        │
+├────────────────────────────┼──────────────────────┼──────────────────────────┤
+│ Detail View                │ billData cache       │ ALL fields (20+)        │
+│                            │ (full JSON)          │                         │
+├────────────────────────────┼──────────────────────┼──────────────────────────┤
+│ Payment Summary            │ billData cache       │ • sub_total             │
+│                            │                      │ • bst                   │
+│                            │                      │ • service_charge        │
+│                            │                      │ • total_amount          │
+├────────────────────────────┼──────────────────────┼──────────────────────────┤
+│ Payment Status Badge       │ billData cache or    │ payment_status          │
+│                            │ paymentStatus cache  │                         │
+├────────────────────────────┼──────────────────────┼──────────────────────────┤
+│ "Pay Now" Button Visibility│ billData cache       │ payment_status (is      │
+│                            │                      │ PENDING/CREDIT?)        │
+├────────────────────────────┼──────────────────────┼──────────────────────────┤
+│ "Print Bill" Button        │ wasCreditCache       │ boolean (was original   │
+│                            │                      │ CREDIT?)                │
+└────────────────────────────┴──────────────────────┴──────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                        CACHE STRUCTURE SUMMARY                                 ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+Map<String, Map<String, dynamic>> _billDataCache = {}
+{
+  "20250128163000-STORE1-1000": {
+    "fnb_bill_no": "20250128163000-STORE1-1000",
+    "primary_customer_name": "John Doe",
+    "phone_no": "+975-1234567",
+    "table_no": "5",
+    "pax": 2,
+    "outlet": "Main Store",
+    "order_type": "Dine In",
+    "sub_total": 1500.00,
+    "bst": 5.0,
+    "service_charge": 150.00,
+    "discount": 0.0,
+    "total_amount": 1655.00,
+    "payment_status": "PAID",          ← ★ Updated when paying
+    "amount_settled": 1655.00,         ← ★ Updated when paying
+    "amount_remaing": 0.0,             ← ★ Updated when paying (typo!)
+    "payment_mode": "CASH",            ← ★ Updated when paying
+    "room_no": null,
+    "reservation_ref_no": null,
+    "journal_no": null,
+    "image_fnb_bill": null,
+    "date": "2025-01-28",
+    "time": "16:30:00"
+  }
+}
+
+Map<String, String> _paymentStatusCache = {}
+{
+  "20250128163000-STORE1-1000": "PAID"
+}
+
+Map<String, bool> _wasCreditCache = {}
+{
+  "20250128163000-STORE1-1000": false  (true only if was originally CREDIT)
+}
+

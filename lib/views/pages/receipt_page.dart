@@ -14,7 +14,6 @@ import 'dart:io';
 import 'package:open_filex/open_filex.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
-import 'dart:typed_data';
 
 class ReceiptPage extends StatefulWidget {
   const ReceiptPage({super.key});
@@ -34,9 +33,12 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
   final FocusNode _focusNode = FocusNode();
   bool _isFirstLoad = true;
   List<ProceedOrderModel> _allOrders = [];
-  Map<String, Map<String, dynamic>> _billDataCache = {}; // Cache bill data by order number
-  Map<String, String> _paymentStatusCache = {}; // Cache payment status by order number
-  Map<String, bool> _wasCreditCache = {}; // Cache whether bill was credit by order number
+  Map<String, Map<String, dynamic>> _billDataCache =
+      {}; // Cache bill data by order number
+  Map<String, String> _paymentStatusCache =
+      {}; // Cache payment status by order number
+  Map<String, bool> _wasCreditCache =
+      {}; // Cache whether bill was credit by order number
 
   // Add pagination variables
   static const int _pageSize = 30;
@@ -163,8 +165,10 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
         // Set the selectedReceiptItem to the most recent order if not already set
         if (selectedReceiptItem == null && _allOrders.isNotEmpty) {
           selectedReceiptItem = _allOrders.first;
-          // Load bill data for the first order
-          _loadBillData(selectedReceiptItem!.orderNumber);
+          // Load bill data for the first order only if not already loaded
+          if (_billDataCache[selectedReceiptItem!.orderNumber] == null) {
+            _loadBillData(selectedReceiptItem!.orderNumber);
+          }
         }
       });
     });
@@ -172,7 +176,10 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
 
   void _loadBillData(String orderNumber) {
     // Trigger load bill event to fetch bill summary data
-    context.read<BillBloc>().add(LoadBill(orderNumber));
+    // Only load if not already cached
+    if (_billDataCache[orderNumber] == null) {
+      context.read<BillBloc>().add(LoadBill(orderNumber));
+    }
   }
 
   Map<String, dynamic>? _getSelectedBillData() {
@@ -375,195 +382,222 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const DrawerMenuWidget(),
-      body: Padding(
-        padding: const EdgeInsets.all(0),
-        child: Row(
-          children: [
-            // Left side (List of receipts)
-            Expanded(
-              flex: 3,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      spreadRadius: 2,
-                      blurRadius: 5,
-                      offset: const Offset(2, 0),
-                    )
-                  ],
+      body: BlocListener<BillBloc, BillState>(
+        listener: (context, state) {
+          if (state is BillError) {
+            // Only show error if it's not a "not found" error for old receipts
+            if (!state.message.contains('Bill not found') &&
+                !state.message.contains('Cannot GET')) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error: ${state.message}'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 3),
+                  behavior: SnackBarBehavior.floating,
                 ),
-                child: Column(
-                  children: [
-                    // Top menu
-                    Container(
-                      height: 60,
-                      decoration: const BoxDecoration(
-                        color: Color.fromARGB(255, 3, 27, 48),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          )
-                        ],
+              );
+            } else {
+              print(
+                  'Bill loading failed (expected for old receipts): ${state.message}');
+            }
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(0),
+          child: Row(
+            children: [
+              // Left side (List of receipts)
+              Expanded(
+                flex: 3,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: const Offset(2, 0),
+                      )
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // Top menu
+                      Container(
+                        height: 60,
+                        decoration: const BoxDecoration(
+                          color: Color.fromARGB(255, 3, 27, 48),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: _buildTopNavigationBar(),
                       ),
-                      child: _buildTopNavigationBar(),
-                    ),
-                    // Date range and export buttons
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      color: Colors.grey[100],
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _buildDateRangeButton(),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Builder(
-                              builder: (context) => _buildExportButton(context),
+                      // Date range and export buttons
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        color: Colors.grey[100],
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildDateRangeButton(),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Builder(
+                                builder: (context) =>
+                                    _buildExportButton(context),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    // Receipt list
-                    Expanded(
-                      child: Container(
-                        padding:
-                            const EdgeInsets.only(left: 5, right: 5, top: 10),
-                        child: Focus(
-                          focusNode: _focusNode,
-                          autofocus: true,
-                          child: BlocProvider(
-                            create: (context) {
-                              final bloc = ProceedOrderBloc();
-                              bloc.add(LoadProceedOrders());
-                              return bloc;
-                            },
-                            child: BlocBuilder<ProceedOrderBloc,
-                                ProceedOrderState>(
-                              builder: (context, state) {
-                                if (state is ProceedOrderLoading) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-
-                                if (state is ProceedOrderError) {
-                                  return Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          'Error: ${state.message}',
-                                          style: const TextStyle(
-                                              color: Colors.red),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        _buildRetryButton(context),
-                                      ],
-                                    ),
-                                  );
-                                }
-
-                                if (state is ProceedOrderLoaded) {
-                                  if (_allOrders != state.proceedOrders) {
-                                    _processOrders(state.proceedOrders);
+                      // Receipt list
+                      Expanded(
+                        child: Container(
+                          padding:
+                              const EdgeInsets.only(left: 5, right: 5, top: 10),
+                          child: Focus(
+                            focusNode: _focusNode,
+                            autofocus: true,
+                            child: BlocProvider(
+                              create: (context) {
+                                final bloc = ProceedOrderBloc();
+                                bloc.add(LoadProceedOrders());
+                                return bloc;
+                              },
+                              child: BlocBuilder<ProceedOrderBloc,
+                                  ProceedOrderState>(
+                                builder: (context, state) {
+                                  if (state is ProceedOrderLoading) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
                                   }
 
-                                  if (_allOrders.isEmpty) {
+                                  if (state is ProceedOrderError) {
                                     return Center(
                                       child: Column(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.receipt_long,
-                                              size: 48,
-                                              color: Colors.grey[400]),
-                                          const SizedBox(height: 16),
-                                          const Text(
-                                            'No orders found',
-                                            style: TextStyle(fontSize: 16),
+                                          Text(
+                                            'Error: ${state.message}',
+                                            style: const TextStyle(
+                                                color: Colors.red),
                                           ),
+                                          const SizedBox(height: 16),
+                                          _buildRetryButton(context),
                                         ],
                                       ),
                                     );
                                   }
 
-                                  final groupedOrders = _groupOrdersByDate();
+                                  if (state is ProceedOrderLoaded) {
+                                    if (_allOrders != state.proceedOrders) {
+                                      _processOrders(state.proceedOrders);
+                                    }
 
-                                  return CustomScrollView(
-                                    controller: scrollController,
-                                    slivers: [
-                                      _buildDateHeader(groupedOrders),
-                                      _buildOrderList(groupedOrders),
-                                      _buildLoadingIndicator(),
-                                      _buildNoMoreDataIndicator(),
-                                    ],
-                                  );
-                                }
-                                return Container();
-                              },
+                                    if (_allOrders.isEmpty) {
+                                      return Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.receipt_long,
+                                                size: 48,
+                                                color: Colors.grey[400]),
+                                            const SizedBox(height: 16),
+                                            const Text(
+                                              'No orders found',
+                                              style: TextStyle(fontSize: 16),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+
+                                    final groupedOrders = _groupOrdersByDate();
+
+                                    return CustomScrollView(
+                                      controller: scrollController,
+                                      slivers: [
+                                        _buildDateHeader(groupedOrders),
+                                        _buildOrderList(groupedOrders),
+                                        _buildLoadingIndicator(),
+                                        _buildNoMoreDataIndicator(),
+                                      ],
+                                    );
+                                  }
+                                  return Container();
+                                },
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // Right side (Detailed view)
-            Expanded(
-              flex: 6,
-              child: BlocListener<BillBloc, BillState>(
-                listener: (context, state) {
-                  if (state is BillLoaded) {
-                    // Update bill data cache for this specific order
-                    if (selectedReceiptItem != null) {
-                      setState(() {
-                        _billDataCache[selectedReceiptItem!.orderNumber] = state.billSummary.toJson();
-                        _paymentStatusCache[selectedReceiptItem!.orderNumber] = state.billSummary.paymentStatus;
-                        // Check if was originally CREDIT/PENDING
-                        if (state.billSummary.paymentStatus == 'PENDING' || state.billSummary.paymentStatus == 'CREDIT') {
-                          _wasCreditCache[selectedReceiptItem!.orderNumber] = true;
-                        } else {
-                          _wasCreditCache[selectedReceiptItem!.orderNumber] = false;
-                        }
-                      });
+              // Right side (Detailed view)
+              Expanded(
+                flex: 6,
+                child: BlocListener<BillBloc, BillState>(
+                  listener: (context, state) {
+                    if (state is BillLoaded) {
+                      // Update bill data cache for this specific order
+                      if (selectedReceiptItem != null) {
+                        setState(() {
+                          _billDataCache[selectedReceiptItem!.orderNumber] =
+                              state.billSummary.toJson();
+                          _paymentStatusCache[selectedReceiptItem!
+                              .orderNumber] = state.billSummary.paymentStatus;
+                          // Check if was originally CREDIT/PENDING
+                          if (state.billSummary.paymentStatus == 'PENDING' ||
+                              state.billSummary.paymentStatus == 'CREDIT') {
+                            _wasCreditCache[selectedReceiptItem!.orderNumber] =
+                                true;
+                          } else {
+                            _wasCreditCache[selectedReceiptItem!.orderNumber] =
+                                false;
+                          }
+                        });
+                      }
+                    } else if (state is BillSubmitted) {
+                      // Reload bill data after payment update with a small delay to allow server to process
+                      if (selectedReceiptItem != null) {
+                        Future.delayed(const Duration(milliseconds: 500), () {
+                          if (mounted) {
+                            _loadBillData(selectedReceiptItem!.orderNumber);
+                          }
+                        });
+                      }
                     }
-                  } else if (state is BillSubmitted) {
-                    // Reload bill data after payment update with a small delay to allow server to process
-                    if (selectedReceiptItem != null) {
-                      Future.delayed(const Duration(milliseconds: 500), () {
-                        if (mounted) {
-                          _loadBillData(selectedReceiptItem!.orderNumber);
-                        }
-                      });
-                    }
-                  }
-                },
-                child: Column(
-                  children: [
-                    _buildDetailHeader(),
-                    Expanded(
-                      child: Container(
-                        color: Colors.grey[200],
-                        child: selectedReceiptItem == null
-                            ? _buildEmptyDetailView()
-                            : _buildReceiptDetailView(),
+                  },
+                  child: Column(
+                    children: [
+                      _buildDetailHeader(),
+                      Expanded(
+                        child: Container(
+                          color: Colors.grey[200],
+                          child: selectedReceiptItem == null
+                              ? _buildEmptyDetailView()
+                              : _buildReceiptDetailView(),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -727,15 +761,15 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
                   return Column(
                     children: [
                       InkWell(
-                         onTap: () {
-                           setState(() {
-                             selectedReceiptItem = proceedOrder;
-                           });
-                           // Load bill data for the selected order
-                           _loadBillData(proceedOrder.orderNumber);
-                         },
-                         child: _buildReceiptListItem(proceedOrder),
-                       ),
+                        onTap: () {
+                          setState(() {
+                            selectedReceiptItem = proceedOrder;
+                          });
+                          // Load bill data for the selected order
+                          _loadBillData(proceedOrder.orderNumber);
+                        },
+                        child: _buildReceiptListItem(proceedOrder),
+                      ),
                       const Divider(height: 1, color: Colors.black12),
                     ],
                   );
@@ -751,22 +785,21 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
 
   Widget _buildReceiptListItem(ProceedOrderModel proceedOrder) {
     // Determine if this is the currently selected item and fetch its payment status
-    final isSelected = selectedReceiptItem?.holdOrderId == proceedOrder.holdOrderId;
+    final isSelected =
+        selectedReceiptItem?.holdOrderId == proceedOrder.holdOrderId;
     String? paymentStatus;
-    
+
     if (isSelected) {
       final billData = _getSelectedBillData();
       if (billData != null) {
         paymentStatus = billData['payment_status'];
       }
     }
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: isSelected
-            ? Colors.blue.shade50
-            : Colors.white,
+        color: isSelected ? Colors.blue.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
@@ -795,9 +828,11 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
               Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getPaymentStatusColor(paymentStatus).withOpacity(0.2),
+                    color:
+                        _getPaymentStatusColor(paymentStatus).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: _getPaymentStatusColor(paymentStatus),
@@ -1177,34 +1212,47 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
   Widget _buildPaymentSummary() {
     // Use bill data if available, otherwise use receipt item data
     final billData = _getSelectedBillData();
-    final subTotal = billData?['sub_total']?.toDouble() ?? selectedReceiptItem?.menuItems.fold<double>(0, (sum, item) => sum + (double.tryParse(item.product.price) ?? 0) * item.quantity) ?? 0;
+    final subTotal = billData?['sub_total']?.toDouble() ??
+        selectedReceiptItem?.menuItems.fold<double>(
+            0,
+            (sum, item) =>
+                sum +
+                (double.tryParse(item.product.price) ?? 0) * item.quantity) ??
+        0;
     final bst = billData?['bst']?.toDouble() ?? 0;
     final serviceCharge = billData?['service_charge']?.toDouble() ?? 0;
-    final total = billData?['total_amount']?.toDouble() ?? selectedReceiptItem?.totalPrice ?? 0;
-    
+    final total = billData?['total_amount']?.toDouble() ??
+        selectedReceiptItem?.totalPrice ??
+        0;
+
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Subtotal', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('${subTotal.toStringAsFixed(2)} Nu', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Subtotal',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('${subTotal.toStringAsFixed(2)} Nu',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('BST (Tax)', style: TextStyle(color: Colors.grey.shade600)),
-            Text('${bst.toStringAsFixed(2)} Nu', style: TextStyle(color: Colors.grey.shade600)),
+            Text('GST (Tax)', style: TextStyle(color: Colors.grey.shade600)),
+            Text('${bst.toStringAsFixed(2)} Nu',
+                style: TextStyle(color: Colors.grey.shade600)),
           ],
         ),
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Service Charge', style: TextStyle(color: Colors.grey.shade600)),
-            Text('${serviceCharge.toStringAsFixed(2)} Nu', style: TextStyle(color: Colors.grey.shade600)),
+            Text('Service Charge',
+                style: TextStyle(color: Colors.grey.shade600)),
+            Text('${serviceCharge.toStringAsFixed(2)} Nu',
+                style: TextStyle(color: Colors.grey.shade600)),
           ],
         ),
         const SizedBox(height: 8),
@@ -1239,8 +1287,9 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
     // Use current payment status if updated, otherwise use bill data
     final currentStatus = _getSelectedPaymentStatus();
     final billData = _getSelectedBillData();
-    final paymentStatus = currentStatus ?? billData?['payment_status'] ?? 'PENDING';
-    
+    final paymentStatus =
+        currentStatus ?? billData?['payment_status'] ?? 'PENDING';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1254,9 +1303,11 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getPaymentStatusColor(paymentStatus).withOpacity(0.2),
+                    color:
+                        _getPaymentStatusColor(paymentStatus).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: _getPaymentStatusColor(paymentStatus),
@@ -1303,7 +1354,25 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _printToThermalPrinter(),
+                  icon: const Icon(Icons.receipt_long, size: 18),
+                  label: const Text('Thermal Print'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -1311,6 +1380,22 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
                 ),
               ),
             ],
+          ),
+        ] else if (paymentStatus == 'PAID') ...[
+          // Show thermal print button for paid orders (not just for converted credit)
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => _printToThermalPrinter(),
+            icon: const Icon(Icons.receipt_long, size: 18),
+            label: const Text('Thermal Print'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
           ),
         ],
       ],
@@ -1375,7 +1460,7 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
           } else {
             Navigator.pop(context);
           }
-          
+
           _processPayment(method);
         },
         style: ElevatedButton.styleFrom(
@@ -1389,38 +1474,63 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
   }
 
   void _processPayment(String paymentMethod) {
-    if (selectedReceiptItem == null) return;
-    
+    if (selectedReceiptItem == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No order selected'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     final billData = _getSelectedBillData();
-    final amountToSettle = billData?['total_amount']?.toDouble() ?? selectedReceiptItem!.totalPrice;
     final orderNumber = selectedReceiptItem!.orderNumber;
-    
+
+    // Check if bill data exists
+    if (billData == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Loading bill data... Please wait a moment and try again'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      // Try to load bill data again
+      _loadBillData(orderNumber);
+      return;
+    }
+
+    final amountToSettle =
+        billData['total_amount']?.toDouble() ?? selectedReceiptItem!.totalPrice;
+
     // Update UI state for this specific order FIRST (optimistic update)
     setState(() {
       _paymentStatusCache[orderNumber] = 'PAID';
-      if (billData?['payment_status'] == 'PENDING' || billData?['payment_status'] == 'CREDIT') {
+      if (billData['payment_status'] == 'PENDING' ||
+          billData['payment_status'] == 'CREDIT') {
         _wasCreditCache[orderNumber] = true;
       }
-      if (billData != null) {
-        _billDataCache[orderNumber] = {
-          ...billData,
-          'payment_status': 'PAID',
-          'amount_settled': amountToSettle,
-          'amount_remaing': 0.0,
-        };
-      }
+      _billDataCache[orderNumber] = {
+        ...billData,
+        'payment_status': 'PAID',
+        'amount_settled': amountToSettle,
+        'amount_remaing': 0.0,
+      };
     });
-    
+
     // Get the BillBloc and update payment status
     context.read<BillBloc>().add(
-      UpdatePaymentStatus(
-        fnbBillNo: orderNumber,
-        paymentStatus: 'PAID',
-        amountSettled: amountToSettle,
-        paymentMode: paymentMethod,
-      ),
-    );
-    
+          UpdatePaymentStatus(
+            fnbBillNo: orderNumber,
+            paymentStatus: 'PAID',
+            amountSettled: amountToSettle,
+            paymentMode: paymentMethod,
+          ),
+        );
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Payment processed via $paymentMethod'),
@@ -1430,9 +1540,71 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _printToThermalPrinter() async {
+    if (selectedReceiptItem == null) return;
+
+    try {
+      final items = selectedReceiptItem!.menuItems
+          .map((item) => {
+                "menuName": item.product.menuName,
+                "quantity": item.quantity,
+                "price": (double.parse(item.product.price) * item.quantity)
+                    .toStringAsFixed(2),
+              })
+          .toList();
+
+      // Use bill data if available, otherwise use order data
+      final billData = _getSelectedBillData();
+      final subTotal = billData?['sub_total']?.toDouble() ??
+          selectedReceiptItem!.menuItems.fold<double>(
+              0,
+              (sum, item) =>
+                  sum +
+                  (double.tryParse(item.product.price) ?? 0) * item.quantity);
+      final bstAmt = billData?['bst']?.toDouble() ?? 0;
+      final serviceAmt = billData?['service_charge']?.toDouble() ?? 0;
+      final totalAmount = billData?['total_amount']?.toDouble() ??
+          selectedReceiptItem!.totalPrice;
+      final payMode = billData?['payment_mode'] ?? 'PENDING';
+      final discount = billData?['discount']?.toDouble() ?? 0;
+
+      await BillService.printWithEscPos(
+        context: context,
+        orderNumber: selectedReceiptItem!.orderNumber,
+        branchName: selectedReceiptItem!.restaurantBranchName,
+        bstAmt: bstAmt,
+        serviceAmt: serviceAmt,
+        id: selectedReceiptItem!.holdOrderId,
+        user: selectedReceiptItem!.customerName,
+        phoneNo: selectedReceiptItem!.phoneNumber,
+        tableNo: selectedReceiptItem!.tableNumber,
+        items: items,
+        subTotal: subTotal,
+        bst: bstAmt > 0 ? (subTotal / bstAmt) : 0,
+        serviceTax: serviceAmt > 0 ? (subTotal / serviceAmt) : 0,
+        totalQuantity: selectedReceiptItem!.menuItems
+            .fold(0, (sum, item) => sum + item.quantity),
+        date: DateFormat('MMMM dd, yyyy')
+            .format(selectedReceiptItem!.orderDateTime),
+        time: DateFormat('hh:mm a').format(selectedReceiptItem!.orderDateTime),
+        discount: discount,
+        totalAmount: totalAmount,
+        payMode: payMode,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to print: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   Future<void> _printBill() async {
     if (selectedReceiptItem == null) return;
-    
+
     final billData = _getSelectedBillData();
     if (billData == null) return;
 
@@ -1455,8 +1627,10 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
         subTotal: billData['sub_total']?.toDouble() ?? 0,
         bst: billData['bst']?.toDouble() ?? 0,
         serviceTax: billData['service_charge']?.toDouble() ?? 0,
-        totalQuantity: selectedReceiptItem!.menuItems.fold(0, (sum, item) => sum + item.quantity),
-        date: DateFormat('MMMM dd, yyyy').format(selectedReceiptItem!.orderDateTime),
+        totalQuantity: selectedReceiptItem!.menuItems
+            .fold(0, (sum, item) => sum + item.quantity),
+        date: DateFormat('MMMM dd, yyyy')
+            .format(selectedReceiptItem!.orderDateTime),
         time: DateFormat('hh:mm a').format(selectedReceiptItem!.orderDateTime),
         totalAmount: billData['total_amount']?.toDouble() ?? 0,
         payMode: billData['payment_mode'] ?? 'PAID',

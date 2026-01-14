@@ -117,8 +117,8 @@ class _TaxSettingsPageState extends State<TaxSettingsPage> {
                     TextFormField(
                       controller: _bstController,
                       decoration: InputDecoration(
-                        labelText: 'BST (%)',
-                        hintText: 'Enter BST percentage',
+                        labelText: 'GST (%)',
+                        hintText: 'Enter GST percentage',
                         prefixIcon: const Icon(Icons.percent),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -127,7 +127,7 @@ class _TaxSettingsPageState extends State<TaxSettingsPage> {
                       keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter BST percentage';
+                          return 'Please enter GST percentage';
                         }
                         final number = double.tryParse(value);
                         if (number == null || number < 0) {

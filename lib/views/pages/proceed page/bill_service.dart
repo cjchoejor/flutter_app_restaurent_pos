@@ -158,7 +158,7 @@ class BillService {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text("B.S.T 10%:", style: const pw.TextStyle(fontSize: 8)),
+                pw.Text("G.S.T 5%:", style: const pw.TextStyle(fontSize: 8)),
                 pw.Text("Nu.${(serviceTax).toStringAsFixed(2)}",
                     style: const pw.TextStyle(fontSize: 8)),
               ],
@@ -271,8 +271,8 @@ class BillService {
     required String user,
     required String phoneNo,
     required String tableNo,
-    String? roomNumber, // ADD THIS
-    String? reservationRefNo, // ADD THIS
+    String? roomNumber,
+    String? reservationRefNo,
     required List<Map<String, dynamic>> items,
     required double subTotal,
     required double bst,
@@ -381,9 +381,8 @@ class BillService {
       addSummaryLine('Discount:', 'Nu.${discount.toStringAsFixed(2)}');
       addSummaryLine(discount > 0 ? 'Subtotal after Discount:' : 'Subtotal:',
           'Nu.${subTotal.toStringAsFixed(2)}');
-      addSummaryLine('Service ${bst}%:', 'Nu.${(bstAmt).toStringAsFixed(2)}');
-      addSummaryLine(
-          'B.S.T ${serviceTax}%:', 'Nu.${(serviceAmt).toStringAsFixed(2)}');
+      addSummaryLine('Service 10.0%:', 'Nu.${(serviceAmt).toStringAsFixed(2)}');
+      addSummaryLine('G.S.T 5.0%:', 'Nu.${(bstAmt).toStringAsFixed(2)}');
 
       buffer.writeln('-' * lineLength);
       addSummaryLine('Total Amount:', 'Nu.${totalAmount.toStringAsFixed(2)}',

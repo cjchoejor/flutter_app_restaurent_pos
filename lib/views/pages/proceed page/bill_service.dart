@@ -67,7 +67,7 @@ class BillService {
                         style: const pw.TextStyle(fontSize: 7)),
                     pw.Text("Mobile 2: +975-77772393",
                         style: const pw.TextStyle(fontSize: 7)),
-                    pw.Text("TPN: LAC00091",
+                    pw.Text("TPN: C10082014",
                         style: const pw.TextStyle(fontSize: 7)),
                     pw.Text("Acc No: 200108440",
                         style: const pw.TextStyle(fontSize: 7)),
@@ -328,8 +328,8 @@ class BillService {
       buffer.write("Branch Name: ");
       buffer.writeln(branchName);
       buffer.writeln('Rinchending, Phuentsholing');
+      buffer.writeln('TPN: C10082014');
       buffer.writeln('Mobile: +975-17872219');
-      // buffer.writeln('TPN: LAC00091');
       // buffer.writeln('Email: legphel.hotel@gmail.com');
 
       buffer.writeln('-' * lineLength);

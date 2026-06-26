@@ -14,6 +14,8 @@ import 'dart:io';
 import 'package:open_filex/open_filex.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
+import 'package:pos_system_legphel/SQL/pending_bill_database.dart';
+import 'package:pos_system_legphel/SQL/proceed_order_database.dart';
 
 class ReceiptPage extends StatefulWidget {
   const ReceiptPage({super.key});
@@ -39,6 +41,8 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
       {}; // Cache payment status by order number
   Map<String, bool> _wasCreditCache =
       {}; // Cache whether bill was credit by order number
+  final PendingBillDatabaseHelper _pendingBillDb =
+      PendingBillDatabaseHelper.instance;
 
   // Add pagination variables
   static const int _pageSize = 30;
@@ -295,12 +299,20 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
           'Time',
           'Customer Name',
           'Phone Number',
+          'Payment Status',
+          'Payment Mode',
           'Total Amount',
           'Items'
         ]);
 
         // Add data
         for (var order in filteredOrders) {
+          final billSummaryData =
+              _billDataCache[order.orderNumber] ??
+                  await _pendingBillDb.getBillSummaryData(order.orderNumber);
+          final paymentStatus = billSummaryData?['payment_status']?.toString();
+          final paymentMode = billSummaryData?['payment_mode']?.toString();
+
           String items = order.menuItems
               .map((item) =>
                   '${item.product.menuName} (${item.quantity}x${item.product.price})')
@@ -312,6 +324,8 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
             DateFormat('HH:mm').format(order.orderDateTime),
             order.customerName,
             order.phoneNumber,
+            paymentStatus ?? '',
+            paymentMode ?? '',
             order.totalPrice.toString(),
             items
           ]);
@@ -1461,7 +1475,7 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
             Navigator.pop(context);
           }
 
-          _processPayment(method);
+          await _processPayment(method);
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,
@@ -1473,7 +1487,7 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
     );
   }
 
-  void _processPayment(String paymentMethod) {
+  Future<void> _processPayment(String paymentMethod) async {
     if (selectedReceiptItem == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1531,6 +1545,13 @@ class _ReceiptPageState extends State<ReceiptPage> with WidgetsBindingObserver {
           ),
         );
 
+    await ProceedOrderDatabaseHelper.instance.updatePaymentFields(
+      selectedReceiptItem!.holdOrderId,
+      'PAID',
+      paymentMethod,
+    );
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Payment processed via $paymentMethod'),

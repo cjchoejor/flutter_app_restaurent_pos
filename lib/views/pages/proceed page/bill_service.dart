@@ -33,6 +33,10 @@ class BillService {
     required String branchName,
     required double discount, // ADD THIS
   }) async {
+    // Get tax percentages from SharedPreferences as fallback
+    final prefs = await SharedPreferences.getInstance();
+    final savedServiceCharge = prefs.getDouble('serviceCharge') ?? serviceTax;
+    final savedBst = prefs.getDouble('bst') ?? bst;
     final pdf = pw.Document();
 
     final ByteData logoData =
@@ -67,7 +71,7 @@ class BillService {
                         style: const pw.TextStyle(fontSize: 7)),
                     pw.Text("Mobile 2: +975-77772393",
                         style: const pw.TextStyle(fontSize: 7)),
-                    pw.Text("TPN: C10082014",
+                    pw.Text("GST TPN: C10082014",
                         style: const pw.TextStyle(fontSize: 7)),
                     pw.Text("Acc No: 200108440",
                         style: const pw.TextStyle(fontSize: 7)),
@@ -146,23 +150,27 @@ class BillService {
                     style: const pw.TextStyle(fontSize: 8)),
               ],
             ),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text("Service 10%:", style: const pw.TextStyle(fontSize: 8)),
-                pw.Text("Nu.${(bst).toStringAsFixed(2)}",
-                    style: const pw.TextStyle(fontSize: 8)),
-              ],
-            ),
+            if (savedServiceCharge > 0)
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text("Service ${savedServiceCharge.toStringAsFixed(1)}%:",
+                      style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text("Nu.${(bst).toStringAsFixed(2)}",
+                      style: const pw.TextStyle(fontSize: 8)),
+                ],
+              ),
 
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text("G.S.T 5%:", style: const pw.TextStyle(fontSize: 8)),
-                pw.Text("Nu.${(serviceTax).toStringAsFixed(2)}",
-                    style: const pw.TextStyle(fontSize: 8)),
-              ],
-            ),
+            if (savedBst > 0)
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text("G.S.T ${savedBst.toStringAsFixed(1)}%:",
+                      style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text("Nu.${(serviceTax).toStringAsFixed(2)}",
+                      style: const pw.TextStyle(fontSize: 8)),
+                ],
+              ),
 
             pw.Divider(),
 
@@ -284,9 +292,12 @@ class BillService {
     required double totalAmount,
     required String payMode,
   }) async {
+    // Get tax percentages from SharedPreferences as fallback
+    final prefs = await SharedPreferences.getInstance();
+    final savedServiceCharge = prefs.getDouble('serviceCharge') ?? serviceTax;
+    final savedBst = prefs.getDouble('bst') ?? bst;
     try {
       // Get the saved server address from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
       final serverAddress = prefs.getString('server_ip_address');
 
       if (serverAddress == null) {
@@ -304,7 +315,10 @@ class BillService {
       final ipAddress = parts[0];
       final port = int.parse(parts[1]);
 
-      final socket = await Socket.connect(ipAddress, port);
+      // Timeout so a powered-off or unreachable printer fails fast instead of
+      // hanging the print flow (and risking the OS killing the app).
+      final socket = await Socket.connect(ipAddress, port,
+          timeout: const Duration(seconds: 5));
 
       // ESC/POS command constants
       const String esc = '\x1B';
@@ -314,6 +328,8 @@ class BillService {
       const String leftAlign = '$esc\x61\x00';
       const String boldOn = '$esc\x45\x01';
       const String boldOff = '$esc\x45\x00';
+      const String doubleHeight = '$esc\x21\x10';
+      const String normalSize = '$esc\x21\x00';
       const String feed = '$esc\x64\x03';
       const String cut = '$gs\x56\x01';
 
@@ -323,12 +339,15 @@ class BillService {
       buffer.write(init);
       buffer.write(centerAlign);
       buffer.write(boldOn);
+      buffer.write(doubleHeight);
+      buffer.writeln('TAX INVOICE');
+      buffer.write(normalSize);
       buffer.writeln('LEGPHEL HOTEL');
       buffer.write(boldOff);
       buffer.write("Branch Name: ");
       buffer.writeln(branchName);
       buffer.writeln('Rinchending, Phuentsholing');
-      buffer.writeln('TPN: C10082014');
+      buffer.writeln('GST TPN: C10082014');
       buffer.writeln('Mobile: +975-17872219');
       // buffer.writeln('Email: legphel.hotel@gmail.com');
 
@@ -381,8 +400,14 @@ class BillService {
       addSummaryLine('Discount:', 'Nu.${discount.toStringAsFixed(2)}');
       addSummaryLine(discount > 0 ? 'Subtotal after Discount:' : 'Subtotal:',
           'Nu.${subTotal.toStringAsFixed(2)}');
-      addSummaryLine('Service 10.0%:', 'Nu.${(serviceAmt).toStringAsFixed(2)}');
-      addSummaryLine('G.S.T 5.0%:', 'Nu.${(bstAmt).toStringAsFixed(2)}');
+      if (savedServiceCharge > 0) {
+        addSummaryLine('Service ${savedServiceCharge.toStringAsFixed(1)}%:',
+            'Nu.${(serviceAmt).toStringAsFixed(2)}');
+      }
+      if (savedBst > 0) {
+        addSummaryLine('G.S.T ${savedBst.toStringAsFixed(1)}%:',
+            'Nu.${(bstAmt).toStringAsFixed(2)}');
+      }
 
       buffer.writeln('-' * lineLength);
       addSummaryLine('Total Amount:', 'Nu.${totalAmount.toStringAsFixed(2)}',

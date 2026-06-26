@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,8 +49,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
 
-  // Initialize NetworkManager
-  await NetworkManager.initialize();
+  // NOTE: NetworkManager.initialize() is intentionally NOT awaited here.
+  // It performs DNS lookups and mobile-network binding with timeouts that can
+  // take minutes on flaky WiFi. Awaiting it kept the splash screen frozen for
+  // 2-3 minutes on startup. It now runs in the background after the UI is up
+  // (see the unawaited call after runApp below).
 
   await _requestImageAndStoragePermissions();
 
@@ -91,6 +95,10 @@ void main() async {
       ),
     ),
   );
+
+  // Run network setup in the background so it never blocks app startup.
+  // Any failure here is non-fatal — the app works with default networking.
+  unawaited(NetworkManager.initialize());
 }
 
 Future<void> _requestImageAndStoragePermissions() async {

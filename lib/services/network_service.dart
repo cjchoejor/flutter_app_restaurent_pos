@@ -12,14 +12,19 @@ class NetworkService {
     _baseUrl = baseUrl;
     _initConnectivity();
     _connectivity.onConnectivityChanged.listen((results) {
-      _updateConnectionStatus(results.first);
+      _updateConnectionStatus(_primary(results));
     });
   }
+
+  // connectivity_plus can return an empty list; `.first` on it throws and
+  // crashes the app. Always fall back to `none` when the list is empty.
+  ConnectivityResult _primary(List<ConnectivityResult> results) =>
+      results.isNotEmpty ? results.first : ConnectivityResult.none;
 
   Future<void> _initConnectivity() async {
     try {
       final results = await _connectivity.checkConnectivity();
-      _updateConnectionStatus(results.first);
+      _updateConnectionStatus(_primary(results));
     } catch (e) {
       _controller.add(false);
     }
@@ -32,7 +37,7 @@ class NetworkService {
 
   Future<bool> isConnected() async {
     final results = await _connectivity.checkConnectivity();
-    return results.first != ConnectivityResult.none;
+    return _primary(results) != ConnectivityResult.none;
   }
 
   Future<bool> isServerAvailable() async {

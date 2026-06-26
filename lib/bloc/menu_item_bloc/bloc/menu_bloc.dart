@@ -24,7 +24,9 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
   }
 
   void _onAddToCart(AddToCart event, Emitter<MenuState> emit) {
-    final currentState = state as MenuLoaded;
+    final currentState = state is MenuLoaded
+        ? state as MenuLoaded
+        : MenuLoaded(menuItems: const [], cartItems: const [], totalAmount: 0);
     final existingCartItem = currentState.cartItems.firstWhere(
         (item) => item.product.menuId == event.item.menuId,
         orElse: () => MenuBillModel(
@@ -55,7 +57,9 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
   }
 
   void _onRemoveFromCart(RemoveFromCart event, Emitter<MenuState> emit) {
-    final currentState = state as MenuLoaded;
+    final currentState = state is MenuLoaded
+        ? state as MenuLoaded
+        : MenuLoaded(menuItems: const [], cartItems: const [], totalAmount: 0);
     final updatedCart = currentState.cartItems
         .where((item) => item.product.menuId != event.item.product.menuId)
         .toList();
@@ -76,7 +80,9 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
   }
 
   void _onItemRemove(ReduceCartItemQuantity event, Emitter<MenuState> emit) {
-    final currentState = state as MenuLoaded;
+    final currentState = state is MenuLoaded
+        ? state as MenuLoaded
+        : MenuLoaded(menuItems: const [], cartItems: const [], totalAmount: 0);
 
     List<MenuBillModel> updatedCart = currentState.cartItems
         .map((item) {
@@ -106,7 +112,9 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
   }
 
   void _onItemAdd(IncreaseCartItemQuantity event, Emitter<MenuState> emit) {
-    final currentState = state as MenuLoaded;
+    final currentState = state is MenuLoaded
+        ? state as MenuLoaded
+        : MenuLoaded(menuItems: const [], cartItems: const [], totalAmount: 0);
 
     List<MenuBillModel> updatedCart = currentState.cartItems.map((item) {
       if (item.product.menuId == event.item.product.menuId) {
@@ -130,7 +138,9 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
 
   void _onUpdateCartItemQuantity(
       UpdateCartItemQuantity event, Emitter<MenuState> emit) {
-    final currentState = state as MenuLoaded;
+    final currentState = state is MenuLoaded
+        ? state as MenuLoaded
+        : MenuLoaded(menuItems: const [], cartItems: const [], totalAmount: 0);
 
     List<MenuBillModel> updatedCart = List.from(event.updatedItems);
 
@@ -148,7 +158,9 @@ class MenuBloc extends Bloc<MenuEvent, MenuState> {
   }
 
   void _onRemoveAllFromCart(RemoveAllFromCart event, Emitter<MenuState> emit) {
-    final currentState = state as MenuLoaded;
+    final currentState = state is MenuLoaded
+        ? state as MenuLoaded
+        : MenuLoaded(menuItems: const [], cartItems: const [], totalAmount: 0);
     emit(MenuLoaded(
       menuItems: currentState.menuItems,
       cartItems: [],

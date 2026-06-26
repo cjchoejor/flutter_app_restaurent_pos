@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:pos_system_legphel/debug/agent_debug_log.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -82,6 +83,34 @@ class _DatabaseManagementPageState extends State<DatabaseManagementPage> {
       if (await Permission.manageExternalStorage.request().isGranted) {
         // Open the database
         final database = await openDatabase(dbFile.path);
+        // #region agent log
+        try {
+          final base = path.basename(dbFile.path);
+          if (base.toLowerCase().contains('proceedorder')) {
+            final ti =
+                await database.rawQuery('PRAGMA table_info(proceed_orders)');
+            final pragmaCols = ti.map((e) => e['name']).toList();
+            final rows = await database.query('proceed_orders', limit: 1);
+            final firstRowKeys =
+                rows.isNotEmpty ? rows.first.keys.toList() : <String>[];
+            final rowCount = Sqflite.firstIntValue(await database
+                    .rawQuery('SELECT COUNT(*) FROM proceed_orders')) ??
+                -1;
+            await agentDebugLog(
+              location: 'database_management_page.dart:_exportToExcel',
+              message: 'export opened proceed db file',
+              hypothesisId: 'A',
+              data: {
+                'exportedFilePath': dbFile.path,
+                'basename': base,
+                'pragma_proceed_orders_columns': pragmaCols,
+                'firstRowKeys': firstRowKeys,
+                'proceed_orders_row_count': rowCount,
+              },
+            );
+          }
+        } catch (_) {}
+        // #endregion
 
         // Get all tables
         final tables = await database.query('sqlite_master',

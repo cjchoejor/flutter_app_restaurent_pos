@@ -14,6 +14,8 @@ class ProceedOrderModel extends Equatable {
   final double totalAmount;
   final String? roomNumber; // ADD THIS
   final String? reservationRefNo; // ADD THIS
+  final String? paymentStatus;
+  final String? paymentMode;
 
   const ProceedOrderModel({
     required this.orderNumber,
@@ -27,6 +29,8 @@ class ProceedOrderModel extends Equatable {
     required this.totalAmount,
     this.roomNumber, // ADD THIS
     this.reservationRefNo, // ADD THIS
+    this.paymentStatus,
+    this.paymentMode,
   });
 
   /// Computes total from menuItems if needed elsewhere
@@ -50,6 +54,8 @@ class ProceedOrderModel extends Equatable {
     double? totalAmount,
     String? roomNumber, // ADD THIS
     String? reservationRefNo, // ADD THIS
+    String? paymentStatus,
+    String? paymentMode,
   }) {
     return ProceedOrderModel(
       holdOrderId: holdOrderId ?? this.holdOrderId,
@@ -63,6 +69,8 @@ class ProceedOrderModel extends Equatable {
       totalAmount: totalAmount ?? this.totalAmount,
       roomNumber: roomNumber ?? this.roomNumber, // ADD THIS
       reservationRefNo: reservationRefNo ?? this.reservationRefNo, // ADD
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentMode: paymentMode ?? this.paymentMode,
     );
   }
 
@@ -79,13 +87,25 @@ class ProceedOrderModel extends Equatable {
       'totalAmount': totalAmount,
       'roomNumber': roomNumber, // ADD THIS
       'reservationRefNo': reservationRefNo, // ADD THIS
+      'paymentStatus': paymentStatus,
+      'paymentMode': paymentMode,
     };
   }
 
   factory ProceedOrderModel.fromMap(Map<String, dynamic> map) {
-    List<MenuBillModel> menuItems = List<MenuBillModel>.from(
-      jsonDecode(map['menuItems']).map((item) => MenuBillModel.fromMap(item)),
-    );
+    // Guard against null/corrupt JSON so a single bad row doesn't crash the
+    // whole order/receipt screen when it loads.
+    List<MenuBillModel> menuItems = [];
+    try {
+      final rawItems = map['menuItems'];
+      if (rawItems is String && rawItems.isNotEmpty) {
+        menuItems = List<MenuBillModel>.from(
+          jsonDecode(rawItems).map((item) => MenuBillModel.fromMap(item)),
+        );
+      }
+    } catch (e) {
+      menuItems = [];
+    }
 
     double calculatedTotal = double.parse(
       menuItems
@@ -107,6 +127,8 @@ class ProceedOrderModel extends Equatable {
           : calculatedTotal,
       roomNumber: map['roomNumber'], // ADD THIS
       reservationRefNo: map['reservationRefNo'], // ADD THIS
+      paymentStatus: map['paymentStatus'] as String?,
+      paymentMode: map['paymentMode'] as String?,
     );
   }
 
@@ -123,5 +145,7 @@ class ProceedOrderModel extends Equatable {
         totalAmount,
         roomNumber, // ADD THIS
         reservationRefNo, // ADD THIS
+        paymentStatus,
+        paymentMode,
       ];
 }

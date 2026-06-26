@@ -1,4 +1,5 @@
 import 'package:pos_system_legphel/models/Menu%20Model/proceed_order_model.dart';
+import 'package:pos_system_legphel/debug/agent_debug_log.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -24,12 +25,33 @@ class ProceedOrderDatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(
+    final db = await openDatabase(
       path,
-      version: 2, // INCREMENT VERSION
+      version: 3,
       onCreate: _createDB,
-      onUpgrade: _onUpgrade, // ADD UPGRADE HANDLER
+      onUpgrade: _onUpgrade,
     );
+    // #region agent log
+    try {
+      final uv = await db.rawQuery('PRAGMA user_version');
+      List<dynamic> colNames = [];
+      try {
+        final ti = await db.rawQuery('PRAGMA table_info(proceed_orders)');
+        colNames = ti.map((e) => e['name']).toList();
+      } catch (_) {}
+      await agentDebugLog(
+        location: 'proceed_order_database.dart:_initDB',
+        message: 'proceed DB after open',
+        hypothesisId: 'B',
+        data: {
+          'absolutePath': path,
+          'user_version': uv.isNotEmpty ? uv.first['user_version'] : null,
+          'pragma_proceed_orders_columns': colNames,
+        },
+      );
+    } catch (_) {}
+    // #endregion
+    return db;
   }
 
   // SQLite Table for Proceed Orders
@@ -46,17 +68,31 @@ class ProceedOrderDatabaseHelper {
         menuItems TEXT,
         totalAmount REAL,
         roomNumber TEXT,
-        reservationRefNo TEXT
+        reservationRefNo TEXT,
+        paymentStatus TEXT,
+        paymentMode TEXT
       )
     ''');
   }
 
-  // ADD UPGRADE HANDLER
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // #region agent log
+    await agentDebugLog(
+      location: 'proceed_order_database.dart:_onUpgrade',
+      message: 'onUpgrade invoked',
+      hypothesisId: 'B',
+      data: {'oldVersion': oldVersion, 'newVersion': newVersion},
+    );
+    // #endregion
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE proceed_orders ADD COLUMN roomNumber TEXT');
       await db.execute(
           'ALTER TABLE proceed_orders ADD COLUMN reservationRefNo TEXT');
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+          'ALTER TABLE proceed_orders ADD COLUMN paymentStatus TEXT');
+      await db.execute('ALTER TABLE proceed_orders ADD COLUMN paymentMode TEXT');
     }
   }
 
@@ -64,6 +100,19 @@ class ProceedOrderDatabaseHelper {
   Future<int> insertProceedOrder(ProceedOrderModel proceedOrder) async {
     final db = await instance.database;
     Map<String, dynamic> proceedOrderMap = proceedOrder.toMap();
+    // #region agent log
+    await agentDebugLog(
+      location: 'proceed_order_database.dart:insertProceedOrder',
+      message: 'insert map keys',
+      hypothesisId: 'D',
+      data: {
+        'mapKeys': proceedOrderMap.keys.toList(),
+        'hasPaymentStatus': proceedOrderMap.containsKey('paymentStatus'),
+        'paymentStatus': proceedOrderMap['paymentStatus']?.toString() ?? '',
+        'paymentMode': proceedOrderMap['paymentMode']?.toString() ?? '',
+      },
+    );
+    // #endregion
     return await db.insert('proceed_orders', proceedOrderMap);
   }
 
@@ -110,5 +159,23 @@ class ProceedOrderDatabaseHelper {
     final db = await instance.database;
     return await db.delete('proceed_orders',
         where: 'holdOrderId = ?', whereArgs: [holdOrderId]);
+  }
+
+  /// Updates payment fields only (e.g. after Pay Now on Order History).
+  Future<int> updatePaymentFields(
+    String holdOrderId,
+    String paymentStatus,
+    String paymentMode,
+  ) async {
+    final db = await instance.database;
+    return await db.update(
+      'proceed_orders',
+      {
+        'paymentStatus': paymentStatus,
+        'paymentMode': paymentMode,
+      },
+      where: 'holdOrderId = ?',
+      whereArgs: [holdOrderId],
+    );
   }
 }

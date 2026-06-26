@@ -58,6 +58,20 @@ class CustomerInfoModel extends Equatable {
 
   // Convert map (from database) to CustomerInfoModel
   factory CustomerInfoModel.fromMap(Map<String, dynamic> map) {
+    // Guard against null/corrupt JSON so a single bad row doesn't crash the
+    // screen that loads these orders.
+    List<MenuBillModel> orderedItems = [];
+    try {
+      final rawItems = map['orderedItems'];
+      if (rawItems is String && rawItems.isNotEmpty) {
+        orderedItems = List<MenuBillModel>.from(
+          jsonDecode(rawItems).map((item) => MenuBillModel.fromMap(item)),
+        );
+      }
+    } catch (e) {
+      orderedItems = [];
+    }
+
     return CustomerInfoModel(
       orderId: map['orderId'],
       orderNumber: map['orderNumber'],
@@ -65,10 +79,7 @@ class CustomerInfoModel extends Equatable {
       customerName: map['customerName'],
       customerContact: map['customerContact'],
       orderDateTime: DateTime.parse(map['orderDateTime']),
-      orderedItems: List<MenuBillModel>.from(
-        jsonDecode(map['orderedItems'])
-            .map((item) => MenuBillModel.fromMap(item)),
-      ),
+      orderedItems: orderedItems,
     );
   }
 

@@ -1085,6 +1085,8 @@ class _ProceedOrderScreenState extends State<ProceedPages> {
             totalAmount: finalAmount,
             roomNumber: widget.roomNumber, // ADD THIS
             reservationRefNo: widget.reservationRefNo, // ADD THIS
+            paymentStatus: paymentStatus,
+            paymentMode: method,
           );
 
           // Submit bill using bloc

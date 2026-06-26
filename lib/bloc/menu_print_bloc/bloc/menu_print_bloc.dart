@@ -24,7 +24,9 @@ class MenuPrintBloc extends Bloc<MenuPrintEvent, MenuPrintState> {
   }
 
   void _onAddToPrint(AddToPrint event, Emitter<MenuPrintState> emit) {
-    final currentState = state as MenuPrintLoaded;
+    final currentState = state is MenuPrintLoaded
+        ? state as MenuPrintLoaded
+        : const MenuPrintLoaded(menuItems: [], printItems: [], totalAmount: 0);
     final existingPrintItem = currentState.printItems.firstWhere(
         (item) => item.product.menuId == event.item.menuId,
         orElse: () => MenuPrintModel(
@@ -55,7 +57,9 @@ class MenuPrintBloc extends Bloc<MenuPrintEvent, MenuPrintState> {
   }
 
   void _onRemoveFromPrint(RemoveFromPrint event, Emitter<MenuPrintState> emit) {
-    final currentState = state as MenuPrintLoaded;
+    final currentState = state is MenuPrintLoaded
+        ? state as MenuPrintLoaded
+        : const MenuPrintLoaded(menuItems: [], printItems: [], totalAmount: 0);
     final updatedPrint = currentState.printItems
         .where((item) => item.product.menuId != event.item.product.menuId)
         .toList();
@@ -77,7 +81,9 @@ class MenuPrintBloc extends Bloc<MenuPrintEvent, MenuPrintState> {
 
   void _onItemRemove(
       ReducePrintItemQuantity event, Emitter<MenuPrintState> emit) {
-    final currentState = state as MenuPrintLoaded;
+    final currentState = state is MenuPrintLoaded
+        ? state as MenuPrintLoaded
+        : const MenuPrintLoaded(menuItems: [], printItems: [], totalAmount: 0);
 
     List<MenuPrintModel> updatedPrint = currentState.printItems
         .map((item) {
@@ -108,7 +114,9 @@ class MenuPrintBloc extends Bloc<MenuPrintEvent, MenuPrintState> {
 
   void _onItemAdd(
       IncreasePrintItemQuantity event, Emitter<MenuPrintState> emit) {
-    final currentState = state as MenuPrintLoaded;
+    final currentState = state is MenuPrintLoaded
+        ? state as MenuPrintLoaded
+        : const MenuPrintLoaded(menuItems: [], printItems: [], totalAmount: 0);
 
     List<MenuPrintModel> updatedPrint = currentState.printItems.map((item) {
       if (item.product.menuId == event.item.product.menuId) {
@@ -132,7 +140,9 @@ class MenuPrintBloc extends Bloc<MenuPrintEvent, MenuPrintState> {
 
   void _onUpdatePrintItemQuantity(
       UpdatePrintItemQuantity event, Emitter<MenuPrintState> emit) {
-    final currentState = state as MenuPrintLoaded;
+    final currentState = state is MenuPrintLoaded
+        ? state as MenuPrintLoaded
+        : const MenuPrintLoaded(menuItems: [], printItems: [], totalAmount: 0);
 
     List<MenuPrintModel> updatedPrint = List.from(event.updatedItems);
 
@@ -151,7 +161,9 @@ class MenuPrintBloc extends Bloc<MenuPrintEvent, MenuPrintState> {
 
   void _onRemoveAllFromPrint(
       RemoveAllFromPrint event, Emitter<MenuPrintState> emit) {
-    final currentState = state as MenuPrintLoaded;
+    final currentState = state is MenuPrintLoaded
+        ? state as MenuPrintLoaded
+        : const MenuPrintLoaded(menuItems: [], printItems: [], totalAmount: 0);
     emit(MenuPrintLoaded(
       menuItems: currentState.menuItems,
       printItems: const [],

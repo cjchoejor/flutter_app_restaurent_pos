@@ -19,8 +19,10 @@ class NetworkManager {
       await _requestNetworkPermissions();
       _startNetworkMonitoring();
 
-      // Initial network check with delay
-      await Future.delayed(const Duration(seconds: 3));
+      // Brief settle so connectivity has a chance to report before the first
+      // binding attempt. Kept short — this runs in the background now, but a
+      // long delay here is pointless and was previously on the startup path.
+      await Future.delayed(const Duration(seconds: 1));
       await _attemptNetworkBinding();
 
       _isInitialized = true;
